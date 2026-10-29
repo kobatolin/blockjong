@@ -366,10 +366,11 @@
     ];
     report.textContent = reportLines.join('\n');
 
-    window.addEventListener('resize', resize, { passive: true });
     resize();
     raf = requestAnimationFrame(frame);
   }
+
+  window.addEventListener('resize', resize, { passive: true });
 
   canvas.addEventListener('webglcontextlost', function (e) {
     e.preventDefault();

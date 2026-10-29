@@ -650,6 +650,7 @@ const ndc = new THREE.Vector2(
 | 重开后越来越卡 | 未 dispose 几何/材质/纹理 | `GameRenderer.dispose()` 遍历释放 |
 | HMR 多个 canvas | 组件卸载未清理 | `onBeforeUnmount` 调用 dispose |
 | 牌面模糊 | DPR 低/纹理小 | 提高 DPR 或纹理到 384×480（按需） |
+| WebGL 上下文丢失 | GPU 驱动重置/切后台 | 监听 `webglcontextlost` 阻止默认并暂停；`webglcontextrestored` 重建纹理与场景，提示“正在恢复” |
 
 ---
 
