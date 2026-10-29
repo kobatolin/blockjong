@@ -1,0 +1,9 @@
+{
+  "host": "127.0.0.1",
+  "port": 8000,
+  "open_browser": true,
+  "assets_root": "backend/assets",
+  "serve_frontend": true,
+  "log_enabled": false,
+  "log_path": "mahj.log"
+}

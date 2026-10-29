@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WebGL 检查 · 麻将消消乐</title>
+<style>
+  :root {
+    --bg: #07120f;
+    --panel: rgba(16, 42, 35, 0.78);
+    --line: rgba(217, 179, 108, 0.28);
+    --gold: #d9b36c;
+    --ivory: #f3e8d0;
+    --muted: #8fa89f;
+    --ok: #5fd39a;
+    --bad: #ef7a6d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background:
+      radial-gradient(1200px 700px at 50% -10%, #12382e 0%, #07120f 55%, #040b09 100%);
+    color: var(--ivory);
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    padding: 32px 20px 48px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 24px; }
+  h1 {
+    font-family: "KaiTi", "STKaiti", "Noto Serif SC", serif;
+    font-size: 30px; letter-spacing: .18em; margin: 0 0 8px; font-weight: 600;
+  }
+  .sub { color: var(--muted); font-size: 13px; letter-spacing: .06em; }
+  .badge {
+    display: inline-block; margin-top: 14px; padding: 6px 16px; border-radius: 999px;
+    border: 1px solid var(--line); font-size: 13px; letter-spacing: .08em;
+    background: rgba(217, 179, 108, .08);
+  }
+  .badge.ok { color: var(--ok); border-color: rgba(95, 211, 154, .45); background: rgba(95, 211, 154, .08); }
+  .badge.bad { color: var(--bad); border-color: rgba(239, 122, 109, .45); background: rgba(239, 122, 109, .08); }
+  .stage {
+    position: relative; border: 1px solid var(--line); border-radius: 16px;
+    overflow: hidden; background: #06100d;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .45), inset 0 0 60px rgba(0, 0, 0, .4);
+  }
+  canvas { display: block; width: 100%; height: 320px; }
+  .status {
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    padding: 10px 14px; font-size: 12px; color: var(--muted);
+    border-top: 1px solid rgba(255, 255, 255, .06);
+  }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 10px; margin-top: 18px;
+  }
+  .row {
+    display: flex; justify-content: space-between; gap: 16px;
+    padding: 12px 14px; border: 1px solid rgba(255, 255, 255, .07);
+    border-radius: 10px; background: var(--panel); font-size: 13px;
+  }
+  .row .k { color: var(--muted); flex: 0 0 auto; }
+  .row .v {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 12px;
+    text-align: right; word-break: break-all; color: #dce9e2;
+  }
+  .row .v.bad { color: var(--bad); }
+  .row .v.ok { color: var(--ok); }
+  .actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  button {
+    appearance: none; cursor: pointer; padding: 10px 18px; border-radius: 10px;
+    border: 1px solid var(--line); background: rgba(217, 179, 108, .08);
+    color: var(--ivory); font-size: 13px; letter-spacing: .06em;
+    transition: background .18s ease, transform .18s ease;
+  }
+  button:hover { background: rgba(217, 179, 108, .18); transform: translateY(-1px); }
+  .note {
+    margin-top: 20px; padding: 14px 16px; border-left: 2px solid var(--gold);
+    background: rgba(217, 179, 108, .05); color: var(--muted);
+    font-size: 12.5px; line-height: 1.8; border-radius: 0 10px 10px 0;
+  }
+  .note b { color: var(--ivory); font-weight: 500; }
+  pre#report {
+    margin: 12px 0 0; padding: 14px; border-radius: 10px; overflow: auto;
+    background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .07);
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 11.5px;
+    color: #b9cec4; max-height: 220px; white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>WebGL 检查</h1>
+    <div class="sub">麻将消消乐 · Three.js 0.186 需要 WebGL2</div>
+    <div id="badge" class="badge">检测中…</div>
+  </header>
+
+  <div class="stage">
+    <canvas id="gl"></canvas>
+    <div class="status">
+      <span>如果三角形在旋转，说明 WebGL 实际渲染正常</span>
+      <span id="fps">—</span>
+    </div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="actions">
+    <button id="again">重新检测</button>
+    <button id="copy">复制报告</button>
+  </div>
+
+  <div class="note">
+    <b>期望结果：</b>WebGL2 可用，renderer 显示真实显卡或 <code>ANGLE (...)</code>，三角形正常旋转。<br />
+    <b>若不可用：</b>在 Edge 设置 → 系统和性能中开启“使用图形加速”，更新显卡驱动，或换用 Chrome / Edge 最新版。<br />
+    <b>说明：</b>此页面不联网、不加载第三方库；可直接双击用 <code>file://</code> 打开。
+  </div>
+
+  <pre id="report">等待检测…</pre>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var canvas = document.getElementById('gl');
+  var badge = document.getElementById('badge');
+  var grid = document.getElementById('grid');
+  var report = document.getElementById('report');
+  var fpsEl = document.getElementById('fps');
+
+  var gl = null;
+  var gl1 = null;
+  var program = null;
+  var uAngle = null;
+  var raf = 0;
+  var angle = 0;
+  var last = 0;
+  var frames = 0;
+  var fpsClock = 0;
+  var reportLines = [];
+
+  function addRow(key, value, cls) {
+    var row = document.createElement('div');
+    row.className = 'row';
+    var k = document.createElement('span');
+    k.className = 'k';
+    k.textContent = key;
+    var v = document.createElement('span');
+    v.className = 'v' + (cls ? ' ' + cls : '');
+    v.textContent = value;
+    row.appendChild(k);
+    row.appendChild(v);
+    grid.appendChild(row);
+  }
+
+  function fail(msg) {
+    badge.className = 'badge bad';
+    badge.textContent = 'WebGL2 不可用';
+    addRow('检测结果', msg, 'bad');
+    report.textContent = msg;
+  }
+
+  function initGL() {
+    var attrs = { antialias: true, alpha: false, powerPreference: 'high-performance' };
+    gl = canvas.getContext('webgl2', attrs);
+    if (!gl) {
+      gl1 = canvas.getContext('webgl', attrs) || canvas.getContext('experimental-webgl');
+      return false;
+    }
+    return true;
+  }
+
+  function compile(type, source) {
+    var sh = gl.createShader(type);
+    gl.shaderSource(sh, source);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+      var log = gl.getShaderInfoLog(sh);
+      gl.deleteShader(sh);
+      throw new Error('Shader 编译失败: ' + log);
+    }
+    return sh;
+  }
+
+  function buildProgram() {
+    var vs = compile(gl.VERTEX_SHADER, [
+      '#version 300 es',
+      'in vec2 aPos;',
+      'in vec3 aColor;',
+      'out vec3 vColor;',
+      'uniform float uAngle;',
+      'void main() {',
+      '  float c = cos(uAngle), s = sin(uAngle);',
+      '  vec2 p = vec2(aPos.x * c - aPos.y * s, aPos.x * s + aPos.y * c);',
+      '  gl_Position = vec4(p, 0.0, 1.0);',
+      '  vColor = aColor;',
+      '}'
+    ].join('\n'));
+    var fs = compile(gl.FRAGMENT_SHADER, [
+      '#version 300 es',
+      'precision mediump float;',
+      'in vec3 vColor;',
+      'out vec4 outColor;',
+      'void main() { outColor = vec4(vColor, 1.0); }'
+    ].join('\n'));
+
+    program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw new Error('Program 链接失败: ' + gl.getProgramInfoLog(program));
+    }
+
+    var verts = new Float32Array([
+       0.00,  0.55,  1.00, 0.32, 0.18,
+      -0.55, -0.45,  0.18, 0.90, 0.48,
+       0.55, -0.45,  0.26, 0.52, 1.00
+    ]);
+    var buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+
+    var aPos = gl.getAttribLocation(program, 'aPos');
+    var aColor = gl.getAttribLocation(program, 'aColor');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 20, 0);
+    gl.enableVertexAttribArray(aColor);
+    gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 20, 8);
+
+    uAngle = gl.getUniformLocation(program, 'uAngle');
+    gl.useProgram(program);
+  }
+
+  function resize() {
+    if (!gl) return;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var rect = canvas.getBoundingClientRect();
+    var w = Math.max(1, Math.round(rect.width * dpr));
+    var h = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+
+  function frame(now) {
+    if (!gl || !program) return;
+    if (!last) last = now;
+    var dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    angle += dt * 0.7;
+
+    resize();
+    gl.clearColor(0.024, 0.063, 0.054, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(program);
+    gl.uniform1f(uAngle, angle);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    frames++;
+    fpsClock += dt;
+    if (fpsClock >= 0.5) {
+      fpsEl.textContent = Math.round(frames / fpsClock) + ' fps · ' +
+        canvas.width + '×' + canvas.height;
+      frames = 0;
+      fpsClock = 0;
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  function exposeInfo() {
+    var out = {};
+    try {
+      var dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      out.vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
+      out.renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    } catch (e) {
+      out.vendor = gl.getParameter(gl.VENDOR);
+      out.renderer = gl.getParameter(gl.RENDERER);
+    }
+    out.version = gl.getParameter(gl.VERSION);
+    out.glsl = gl.getParameter(gl.SHADING_LANGUAGE_VERSION);
+    out.maxTexture = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    out.maxRenderbuffer = gl.getParameter(gl.MAX_RENDERBUFFER_SIZE);
+    var vp = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+    out.maxViewport = vp ? (vp[0] + '×' + vp[1]) : 'unknown';
+    out.dpr = window.devicePixelRatio || 1;
+    out.ua = navigator.userAgent;
+    return out;
+  }
+
+  function run() {
+    cancelAnimationFrame(raf);
+    gl = null;
+    gl1 = null;
+    program = null;
+    grid.innerHTML = '';
+    reportLines = [];
+    angle = 0;
+    last = 0;
+    frames = 0;
+    fpsClock = 0;
+    fpsEl.textContent = '—';
+    badge.className = 'badge';
+    badge.textContent = '检测中…';
+
+    var ok2 = initGL();
+
+    if (!ok2) {
+      if (gl1) {
+        addRow('WebGL2', '不可用', 'bad');
+        addRow('WebGL1', '可用（但 Three.js 0.186 需要 WebGL2）', 'bad');
+        var dbg1 = gl1.getExtension('WEBGL_debug_renderer_info');
+        addRow('WebGL1 渲染器', dbg1 ? gl1.getParameter(dbg1.UNMASKED_RENDERER_WEBGL) : gl1.getParameter(gl1.RENDERER));
+      } else {
+        fail('当前浏览器/环境没有可用的 WebGL 上下文（WebGL1 也不可用）。');
+        return;
+      }
+      badge.className = 'badge bad';
+      badge.textContent = '仅 WebGL1，不足以运行本游戏';
+      report.textContent = 'WebGL1 only — Three.js 0.186 requires WebGL2.';
+      return;
+    }
+
+    badge.className = 'badge ok';
+    badge.textContent = 'WebGL2 可用';
+
+    try {
+      buildProgram();
+    } catch (e) {
+      badge.className = 'badge bad';
+      badge.textContent = 'WebGL2 可用，但着色器失败';
+      addRow('WebGL2', '可用', 'ok');
+      addRow('着色器', String(e.message), 'bad');
+      report.textContent = String(e.stack || e.message);
+      return;
+    }
+
+    var info = exposeInfo();
+    addRow('WebGL2', '可用', 'ok');
+    addRow('渲染器', String(info.renderer));
+    addRow('厂商', String(info.vendor));
+    addRow('GL 版本', String(info.version));
+    addRow('GLSL 版本', String(info.glsl));
+    addRow('最大纹理', String(info.maxTexture) + ' px');
+    addRow('最大 Viewport', String(info.maxViewport));
+    addRow('设备像素比', String(info.dpr));
+    addRow('浏览器', String(info.ua));
+
+    reportLines = [
+      'WebGL2: OK',
+      'renderer: ' + info.renderer,
+      'vendor: ' + info.vendor,
+      'version: ' + info.version,
+      'glsl: ' + info.glsl,
+      'maxTextureSize: ' + info.maxTexture,
+      'maxViewport: ' + info.maxViewport,
+      'devicePixelRatio: ' + info.dpr,
+      'userAgent: ' + info.ua
+    ];
+    report.textContent = reportLines.join('\n');
+
+    window.addEventListener('resize', resize, { passive: true });
+    resize();
+    raf = requestAnimationFrame(frame);
+  }
+
+  canvas.addEventListener('webglcontextlost', function (e) {
+    e.preventDefault();
+    cancelAnimationFrame(raf);
+    badge.className = 'badge bad';
+    badge.textContent = 'WebGL 上下文丢失';
+  });
+
+  canvas.addEventListener('webglcontextrestored', function () {
+    run();
+  });
+
+  document.getElementById('again').addEventListener('click', run);
+
+  document.getElementById('copy').addEventListener('click', function () {
+    var text = reportLines.length ? reportLines.join('\n') : report.textContent;
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(fallback);
+    } else {
+      fallback();
+    }
+    var btn = document.getElementById('copy');
+    var old = btn.textContent;
+    btn.textContent = '已复制';
+    setTimeout(function () { btn.textContent = old; }, 1200);
+  });
+
+  run();
+})();
+</script>
+</body>
+</html>
