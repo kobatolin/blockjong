@@ -82,6 +82,7 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 - **HMR / 重开**：`GameRenderer` 必须在 `onBeforeUnmount` 调用 `dispose()`（几何、材质、纹理、renderer、canvas），否则多次挂载会泄漏 WebGL context。
 - **响应式**：不要把 Three.js 对象放进 Vue `reactive`/Pinia 深层响应式；用普通变量或 `shallowRef`。
 - **纹理颜色空间**：CanvasTexture 必须设 `SRGBColorSpace`，否则牌面发灰/过曝。
+- **牌面字体**：`src/assets/fonts/` 是 Ma Shan Zheng 与 LXGW WenKai TC 的 OFL 子集；`main.ts` 在挂载前 `document.fonts.load`。新增牌面纹理必须在字体就绪后烘焙；東/發/萬必须走 `MahjongTraditional`，否则会回退系统字体。
 - **拾取坐标**：NDC 用 `canvas.getBoundingClientRect()`，不是 `window.innerWidth`。
 - **相机适配**：棋盘为竖长格（`CELL_D = 1.25`），别按正方形算范围。
 - **种子**：0 是合法 seed，“未输入”用 `null`；URL 的 `?seed=` 必须走同一套校验；随机 seed 用 `crypto.getRandomValues`，不要用 `Math.random` 生成开局布局。

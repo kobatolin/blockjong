@@ -547,6 +547,7 @@ mahj/
 │   │   │   ├── SettingsPanel.vue
 │   │   │   ├── TutorialOverlay.vue
 │   │   │   └── Toast.vue
+│   │   ├── assets/fonts/       # MahjongBrush / MahjongTraditional 子集 + OFL
 │   │   ├── stores/game.ts
 │   │   ├── utils/
 │   │   │   ├── format.ts
@@ -554,6 +555,7 @@ mahj/
 │   │   ├── api/client.ts
 │   │   ├── styles/
 │   │   │   ├── tokens.css
+│   │   │   ├── fonts.css
 │   │   │   ├── base.css
 │   │   │   └── ui.css
 │   │   └── env.d.ts
