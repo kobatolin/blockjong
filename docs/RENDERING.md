@@ -614,7 +614,7 @@ const ndc = new THREE.Vector2(
 | 参数 | 作用 |
 | --- | --- |
 | `?mode=easy\|medium\|full` | 直接开局 |
-| `?seed=12345` | 固定随机种子 |
+| `?seed=12345` | 固定随机种子（也可在菜单输入） |
 | `?faces=1` | 42 张牌面画廊 |
 | `?debug=1` | 显示 FPS、draw call、三角形数、牌数、相机距离 |
 | `?quality=low` | 强制画质档 |
