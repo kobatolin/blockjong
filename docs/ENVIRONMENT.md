@@ -212,18 +212,19 @@ git config --global user.email
 
 ---
 
-## 9. M1/M2 实测状态（2026-10-29）
+## 9. M1–M5 实测状态（2026-10-29）
 
 - [x] 前端依赖安装成功（Vite 8.3.5、Three 0.186.1、Vue 3.5.44、Vitest 5.0.5、`@types/three` 0.186.0）。
 - [x] `npm run test:sandbox`：6 个测试文件、50 个用例全部通过。
 - [x] `npm run typecheck`：通过。
-- [x] `npm run build:sandbox`：产出 `frontend/dist`（JS 约 676KB / gzip 184KB，Three.js 体积警告可接受）。
+- [x] `npm run build:sandbox`：产出 `frontend/dist`（JS 约 697KB / gzip 191KB，Three.js 体积警告可接受）。
 - [x] 后端 `uv venv` + `uv pip install`：FastAPI 0.162.0、Uvicorn 0.54.0、Pydantic 2.14.1。
 - [x] `py_compile` 通过。
 - [x] `/api/health`、`/api/config`、`/`（SPA）、`/api/assets` 路径穿越 404 均验证通过。
 - [x] Edge + Playwright（完整权限）实测：WebGL2 可用；点选消除（72→70）、指针拖动消除（70→68）、同种子复现、144 张完整棋盘、暂停/死局弹窗、移动端 390×844 布局均通过；无页面 console error。
-- [ ] M5 打磨（音效、粒子、画质设置、无障碍）。
-- [ ] M6 交付（脚本、回归清单、最终截图）。
+- [x] M5：首次三步引导、设置面板、音效开关、低画质、减少动效、快捷键与移动端 HUD 均通过真实浏览器验收；消除粒子截图可见。
+- [x] `scripts\build.cmd -Sandbox` 一键构建通过（脚本执行策略由 `.cmd` 包装绕过）；`scripts\dev.cmd -Sandbox` 用于双端启动。
+- [x] M6 最终交付（回归清单归档、README/文档终检、最终提交）。
 
 ---
 
@@ -231,11 +232,11 @@ git config --global user.email
 
 - 本机具备完整的 Node + Python + Git 开发条件，磁盘充足。
 - 唯一需要预处理的坑是 **npm/pip/uv 缓存目录**、**Vite 的 Windows 网络盘探测**、**Vitest forks 子进程**与**浏览器自动化限制**，均已给出规避方案。
-- 环境层面没有阻塞项；M0–M2 已完成，M3 进入 3D 表现与交互接入。
+- 环境层面没有阻塞项；M0–M6 已完成，可交付。
 
 ---
 
-## 11. M1/M2 环境适配记录
+## 11. M1–M5 环境适配记录
 
 ### 11.1 Vite 8 的 `net use` 探测
 
@@ -314,4 +315,21 @@ Playwright 仅装在 `.tmp/verify`（不提交，不进入 `package.json`）；�
 - `npm run dev:sandbox`，或让 FastAPI 托管 `frontend/dist`；
 - 用鼠标/触屏检查点选、拖动、暂停、结算。
 
-调试参数：`?debug=1` 会在 `window.__mahj` 暴露只读快照、hint、findDrag、cellToScreen、tap/drag 与 uiState，供自动化验收使用；普通用户不会看到。
+调试参数：`?debug=1` 会在 `window.__mahj` 暴露只读快照、hint、findDrag、cellToScreen、tap/drag 与 uiState，供自动化验收使用；普通用户不会看到。`?debug=1` 也会跳过首次三步引导。
+
+### 11.7 构建脚本与执行策略
+
+本机 PowerShell 的脚本执行策略会阻止直接运行 `.ps1`：
+
+```text
+无法加载文件 ...\build.ps1。未对文件进行数字签名。
+```
+
+因此提供 `.cmd` 包装，用 `powershell.exe -ExecutionPolicy Bypass` 调用：
+
+```powershell
+scripts\dev.cmd -Sandbox
+scripts\build.cmd -Sandbox -Test
+```
+
+`scripts/build.cmd -Sandbox` 实测通过，输出 `frontend/dist` 后由 FastAPI 托管。普通环境去掉 `-Sandbox` 即可。

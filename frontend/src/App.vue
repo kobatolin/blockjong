@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { fetchConfig } from '@/api/client'
 import type { ModeId, SeedSource } from '@/core/types'
 import { useGameStore } from '@/stores/game'
@@ -19,6 +19,14 @@ const screen = ref<'menu' | 'game'>('menu')
 const menuMode = ref<ModeId>(initial.mode ?? 'easy')
 const menuSeed = ref<number | null>(initial.seed)
 const options = ref<StartOptions | null>(null)
+
+watch(
+  () => store.motion,
+  (value) => {
+    document.documentElement.classList.toggle('reduced-motion', value === 'reduced')
+  },
+  { immediate: true },
+)
 
 function startGame(next: StartOptions): void {
   options.value = next

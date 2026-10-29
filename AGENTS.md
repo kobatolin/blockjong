@@ -8,7 +8,7 @@
 
 核心玩法：点选两张可配对且无阻挡的牌消除；或按住牌沿行/列拖动，带动连续牌串，落点成对则消除，否则整串回弹。
 
-- **当前状态：M4 完成，M5 进行中**。三种模式可完整游玩；`frontend/src/core` 有 50 个 Vitest 用例通过；菜单、种子、3D 对局、HUD、暂停/结算、本地记录与移动端布局均已接通。M5 待补音效、画质/音效设置、粒子与无障碍细节。
+- **当前状态：M0–M6 完成，可交付**。三种模式可完整游玩；`frontend/src/core` 有 50 个 Vitest 用例通过；菜单、种子、3D 对局、HUD、暂停/结算、本地记录、移动端布局、程序化音效、消除粒子、画质/音效设置、减少动效与首次引导均已接通；`scripts/dev.cmd` / `build.cmd` 与最终回归已完成。
 - 开始实现前，按顺序阅读：
   1. `docs/GAME_RULES.md` —— 规则唯一权威来源；
   2. `docs/PROJECT_PLAN.md` —— 架构、模块、路线；
@@ -29,6 +29,10 @@ npm run build          # vite build -> frontend/dist
 npm run dev:sandbox
 npm run build:sandbox
 npm run test:sandbox
+
+# 一键脚本（普通环境去掉 -Sandbox）
+.\scripts\dev.cmd -Sandbox
+.\scripts\build.cmd -Sandbox -Test
 
 # 后端（DSH 中 python -m venv 的 ensurepip 会被拒，改用 uv）
 cd backend
@@ -68,7 +72,10 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 - **pip/uv 缓存**同样受限：用 `--cache-dir` / `UV_CACHE_DIR` 指向项目内。
 - **pnpm 未安装**：不要引入 pnpm 工作流；统一 npm + `package-lock.json`。
 - **浏览器自动化**：普通沙箱无法启动 Edge（mojo IPC 被拒）；切到完整权限后可用 `playwright-core` + 本机 Edge 截图/点击/拖拽验收。不要假设 `npm run test` 在沙箱中可用，统一用 `test:sandbox`。
-- **`?debug=1`**：在 `window.__mahj` 暴露快照、hint、findDrag、cellToScreen、tap/drag、uiState；仅用于验收，不参与正常玩法。
+- **`?debug=1`**：在 `window.__mahj` 暴露快照、hint、findDrag、cellToScreen、tap/drag、uiState；仅用于验收，不参与正常玩法。`?debug=1` 会跳过首次三步引导。
+- **音效**：`render/audio.ts` 用 Web Audio 程序化合成，AudioContext 必须由首次用户手势创建；设置里的静音会 `suspend/resume`，不要在模块顶层 new AudioContext。
+- **教程/设置持久化**：`mahj.tutorial.v1` 与 `mahj.settings.v1` 存 localStorage；自动化测试用 `?debug=1` 跳过教程，或预先写入 storage。
+- **画质档位**：`GameRenderer.setQuality()` 控制 DPR/阴影/粒子；低画质关闭阴影与粒子，自动档在平均帧时间 >24ms 时降到 medium。不要在渲染循环里反复重建 renderer。
 - **Node 24 + Vite 8**：满足 engines；但 **TypeScript 锁 5.9.x**，不要升到 7.x（`vue-tsc` 生态未验证）。
 - **Three.js 0.186 只支持 WebGL2**；不要写 WebGL1 回退渲染器。
 - **Three.js addons 路径**：`three/addons/geometries/RoundedBoxGeometry.js`、`three/addons/environments/RoomEnvironment.js`。版本升级前先查 API。
@@ -96,6 +103,7 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 3. `cd backend && python -m py_compile ...`
 4. 手动回归矩阵见 `docs/PROJECT_PLAN.md` 的 13.2 节，自动化用例见 `docs/GAME_RULES.md#11-测试矩阵`
 5. 3D/UI 改动后检查 `?debug=1` 与真实浏览器截图/控制台；确认无 console error、无 WebGL context 泄漏
+6. M5 之后补测：首次引导、设置持久化、低画质、静音/音效、快捷键与移动端 HUD
 
 ## 文档维护
 

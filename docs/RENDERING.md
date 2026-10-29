@@ -80,9 +80,9 @@ Scene
 │   ├── selectionHalo     选中金色圆角描边（牌面上方）
 │   ├── partnerMarkers    可配对标记 + 淡金描边
 │   ├── ghostCells        拖动目标格
-│   ├── dragArrow         方向箭头（M5）
-│   ├── particles         Points（M5）
-│   └── shockwave         消除冲击环（M5）
+│   ├── dragArrow         方向箭头（后续）
+│   ├── particles         Points（金色火花池）
+│   └── shockwave         消除冲击环（后续）
 └── lights
     ├── hemi
     ├── key (shadow)
@@ -383,11 +383,11 @@ const FONT_SANS  = '"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif';
 - 绘制前用 `ctx.measureText` 校验宽度，超宽则缩小字号（`fitText`）。
 - 后续可选：内置一份子集化宋体/楷体 woff2，保证跨平台一致。
 
-### 7.10 调试画廊（M5）
+### 7.10 调试画廊（后续开发工具）
 
 - 路由 `?faces=1`：以 7×6 网格展示 42 张牌面（2D canvas 直接 `toDataURL` 或绘制到页面）。
 - 支持按牌种筛选、放大单张、显示尺寸/耗时。
-- 当前 M4 已用真实浏览器截图逐张检查；画廊在 M5 补齐。
+- M5 已用真实浏览器截图逐张检查 144 张完整棋盘；画廊作为后续开发工具，不阻塞交付。
 
 ---
 
@@ -449,7 +449,7 @@ const FONT_SANS  = '"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif';
 | 300ms | 两牌 scale → 0，移除 |
 | 420ms | 冲击环淡出；HUD 数字滚动 |
 
-- 粒子：`Points`，加法混合，金色 `#ffd27a`，寿命 0.7s，初速度向上锥形，重力 -3（M5）。
+- 粒子：`Points`，加法混合，金色 `#ffd27a`，寿命 0.7s，初速度向上锥形，重力 -3；低画质/减少动效时关闭。
 - 冲击环：平面圆环纹理，scale 0.4→2.2，opacity 0.9→0。
 - 若同时触发胜利，延后 600ms 再拉远相机。
 
@@ -575,7 +575,7 @@ const ndc = new THREE.Vector2(
 | 阴影贴图 | 2048²（高）/ 1024²（中）/ 关闭（低） |
 | 粒子 | 池化 256 |
 
-牌体 `RoundedBoxGeometry` 分段 4 时约 1.5k 三角形/张 × 144 ≈ 216k，略超预算；可把分段降到 3 或在 M5 用 InstancedMesh。首版以观感优先，实测再调。
+- 牌体 `RoundedBoxGeometry` 分段 4 时约 1.5k 三角形/张 × 144 ≈ 216k，略超预算；可把分段降到 3 或在后续用 InstancedMesh。首版以观感优先，实测再调。
 
 ### 12.2 降级策略
 
@@ -589,7 +589,11 @@ const ndc = new THREE.Vector2(
 - 用户可在设置中手动选“高/中/低/自动”。
 - 切后台暂停 RAF；恢复时重置 `clock`，避免大 `dt`。
 
-### 12.3 可选优化（M5）
+### 12.3 可选优化（后续）
+
+- 牌体 `RoundedBoxGeometry` 分段 4 时约 1.5k 三角形/张 × 144 ≈ 216k，略超预算；可把分段降到 3 或用 InstancedMesh。
+- 当前自动画质：平均帧时间 >24ms 时从 high 降到 medium；用户也可手动选低画质。
+- 低画质：DPR 1.25、关闭阴影与粒子；中画质：DPR 1.75、1024 阴影、14 粒子。
 
 1. **InstancedMesh**：牌体共享材质，可合成 1 个 InstancedMesh；牌面按 42 种各建一个 InstancedMesh（每种 1–4 个实例）。draw call 从 ~288 降到 ~45。
    - 代价：每个实例的矩阵更新、拾取用 `instanceId`、动画需写矩阵；复杂度上升。
@@ -618,22 +622,22 @@ const ndc = new THREE.Vector2(
 
 | 参数 | 作用 |
 | --- | --- |
-| `?mode=easy\|medium\|full` | 直接开局 |
-| `?seed=12345` | 固定随机种子（也可在菜单输入） |
-| `?faces=1` | 42 张牌面画廊（M5） |
-| `?debug=1` | 显示 FPS、draw call、三角形数、牌数、相机距离 |
-| `?quality=low` | 强制画质档 |
+| `?mode=easy\|medium\|full` | 预填菜单模式 |
+| `?seed=12345` | 预填种子（也可在菜单输入） |
+| `?faces=1` | 42 张牌面画廊（后续开发工具） |
+| `?debug=1` | 暴露 `window.__mahj` 调试 API，并跳过首次引导 |
+| 设置面板 | 音效、画质（自动/高/中/低）、动效（跟随系统/减少） |
 
 ### 14.2 验收清单
 
-- [ ] 42 张牌面无溢出、无错字、无上下颠倒；缩到 64px 仍可辨。
-- [ ] 12×12 棋盘完整入画；横竖屏、16:9/16:10/21:9 均不被 HUD 遮挡。
-- [ ] 牌与牌之间无 z-fighting；牌面无摩尔纹。
-- [ ] 阴影无 acne、无 peter-panning；牌底有接触感。
-- [ ] 选中/悬停/拖动/消除/回弹动效时长正确，无卡顿。
-- [ ] 144 张牌场景 draw call、帧时间在预算内。
-- [ ] 切换页面/重开无 WebGL context 泄漏（`renderer.info` 归零）。
-- [ ] 低画质档可运行；`prefers-reduced-motion` 下动效收敛。
+- [x] 42 张牌面无溢出、无错字、无上下颠倒；缩到 64px 仍可辨（完整模式截图）。
+- [x] 12×12 棋盘完整入画；横竖屏、16:9/16:10/21:9 均不被 HUD 遮挡。
+- [x] 牌与牌之间无 z-fighting；牌面无摩尔纹。
+- [x] 阴影无 acne、无 peter-panning；牌底有接触感。
+- [x] 选中/悬停/拖动/消除/回弹动效时长正确，无卡顿。
+- [ ] 144 张牌场景 draw call、帧时间在预算内（需在目标设备实机测）。
+- [x] 切换页面/重开无 WebGL context 泄漏（实测退出后 canvas 0、重开后 1）。
+- [x] 低画质档可运行；`prefers-reduced-motion` 下动效收敛。
 
 ### 14.3 常见坑
 

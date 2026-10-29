@@ -12,6 +12,7 @@ const props = defineProps<{
   canUndo: boolean
   canHint: boolean
   paused: boolean
+  soundOn: boolean
 }>()
 
 const emit = defineEmits<{
@@ -21,6 +22,8 @@ const emit = defineEmits<{
   pause: []
   exit: []
   'copy-seed': []
+  'toggle-sound': []
+  settings: []
 }>()
 
 const time = () => formatTime(props.elapsedMs)
@@ -63,6 +66,24 @@ const time = () => formatTime(props.elapsedMs)
     </div>
 
     <div class="hud-right">
+      <button
+        class="icon-btn sound-btn"
+        :class="{ off: !props.soundOn }"
+        type="button"
+        :aria-label="props.soundOn ? '关闭音效' : '开启音效'"
+        :aria-pressed="props.soundOn"
+        @click="emit('toggle-sound')"
+      >
+        {{ props.soundOn ? '♪' : '∅' }}
+      </button>
+      <button
+        class="icon-btn"
+        type="button"
+        aria-label="打开设置"
+        @click="emit('settings')"
+      >
+        ⚙
+      </button>
       <button
         class="icon-btn pause-btn"
         type="button"
@@ -128,6 +149,15 @@ const time = () => formatTime(props.elapsedMs)
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+.sound-btn {
+  font-size: 15px;
+}
+
+.sound-btn.off {
+  color: var(--muted);
+  opacity: 0.65;
 }
 
 .mode-name {

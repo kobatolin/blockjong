@@ -535,6 +535,8 @@ mahj/
 │   │   │   ├── tileFactory.ts
 │   │   │   ├── facePainter.ts
 │   │   │   ├── table.ts
+│   │   │   ├── particles.ts
+│   │   │   ├── audio.ts
 │   │   │   └── tween.ts
 │   │   ├── components/
 │   │   │   ├── MainMenu.vue
@@ -542,6 +544,8 @@ mahj/
 │   │   │   ├── GameView.vue
 │   │   │   ├── HudBar.vue
 │   │   │   ├── GameDialog.vue
+│   │   │   ├── SettingsPanel.vue
+│   │   │   ├── TutorialOverlay.vue
 │   │   │   └── Toast.vue
 │   │   ├── stores/game.ts
 │   │   ├── utils/
@@ -563,8 +567,10 @@ mahj/
 │       └── session.test.ts
 ├── docs/screenshots/    # README 截图
 └── scripts/
-    ├── dev.ps1          # M6
-    ├── build.ps1        # M6
+    ├── dev.ps1          # 启动后端 + Vite
+    ├── dev.cmd
+    ├── build.ps1        # 单测/构建/py_compile
+    ├── build.cmd
     ├── sandbox-preload.cjs
     └── check-webgl.html
 ```
@@ -584,10 +590,9 @@ mahj/
 | **M4 完整玩法** | 主菜单、种子输入、HUD、弹窗（种子/分享链接）、记录、响应式（画质/音效设置移至 M5） | 三模式从开局到胜利/死局流程闭环；同种子两次开局布局一致；非法种子被拦截；分享链接可预填；手机竖屏可玩 |
 | **M5 打磨** | 音效、画质/音效设置、粒子、性能降级、无障碍、引导 | 低画质档位可运行；减少动效生效；首次进入有 3 步引导 |
 | **M6 交付** | README、脚本、构建、手动测试矩阵、截图 | 一条命令构建；`docs/` 与实现同步；回归清单全部通过 |
-
 建议按 M1 → M2 → M3 顺序做：先让规则在纯逻辑层跑通并用测试锁住，再接 3D，避免“画面先做、规则反复改”的返工。
 
-**当前进度（2026-10-29）**：M0–M4 完成。后端 `/api/health`、`/api/config`、`/api/assets` 可用；前端可构建并完整游玩三模式（菜单、种子、3D 牌面、点选/拖拽、撤销/提示、暂停/结算、本地记录、移动端布局）；核心逻辑 50 个 Vitest 用例通过，并用 Edge + Playwright 在真实 WebGL2 下完成点选、拖动、同种子复现与胜利流程验收。下一步 M5：音效、粒子、画质设置、无障碍与性能降级。
+**当前进度（2026-10-29）**：M0–M6 完成。后端 `/api/health`、`/api/config`、`/api/assets` 可用；前端可构建并完整游玩三模式（菜单、种子、3D 牌面、点选/拖拽、撤销/提示、暂停/结算、本地记录、移动端布局）；M5 已加入程序化音效、消除粒子、画质/音效设置、减少动效、首次三步引导与低画质档；核心逻辑 50 个 Vitest 用例通过，并用 Edge + Playwright 在真实 WebGL2 下完成点选、拖动、同种子复现、暂停/死局、教程/设置、144 张与移动端验收。`scripts/dev.cmd`、`scripts/build.cmd` 可用；M6 最终回归与交付整理完成。
 
 ---
 
@@ -595,12 +600,13 @@ mahj/
 
 ### 13.1 自动化
 
-- `cd frontend && npm run test`：Vitest 跑 `tests/**`。
+- `cd frontend && npm run test`：Vitest 跑 `tests/**`（50 用例）。
 - `cd frontend && npm run build`：Vite 生产构建（类型检查单独跑，见 `ENVIRONMENT.md`）。
 - `cd backend && python -m py_compile app/main.py app/config.py app/routers/*.py`。
+- `scripts\build.cmd -Test`：单测 + 构建 + 后端 `py_compile` 一键验收。
 - 可选：`python -m pytest`（后端仅接口冒烟，非重点）。
 
-### 13.2 手动回归矩阵（M4 起）
+### 13.2 手动回归矩阵（M4–M6）
 
 | 场景 | 预期 |
 | --- | --- |
@@ -620,7 +626,11 @@ mahj/
 | 输入 `0x` 十六进制 / 边界值 | `0x1F`、`0`、`4294967295` 合法；`4294967296`、`-1`、`abc` 报错 |
 | 复制分享链接并打开 | 菜单预填模式与种子；点击开始后布局一致 |
 | 重开本局 / 换一局 | 前者同 seed；后者新 seed |
+| 首次进入对局 | 出现 3 步引导；可跳过；完成后刷新不再出现 |
+| 音效开关 / 画质低 / 减少动效 | 立即生效并持久化；低画质无阴影/粒子；减少动效不脉冲 |
+| 快捷键 U/H/P/R/Esc | 撤销/提示/暂停/重开/关闭弹窗；输入框内不触发 |
 | 窗口缩放/横竖屏 | 棋盘完整入画，按钮不遮挡 |
+| 移动端 390×844 | HUD、棋盘、操作坞不溢出 |
 | 刷新页面 | 回到主菜单，无残留错误 |
 
 ### 13.3 性能与兼容

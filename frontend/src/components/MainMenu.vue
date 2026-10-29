@@ -16,6 +16,7 @@ import { useGameStore } from '@/stores/game'
 import { formatTime } from '@/utils/format'
 import { writeUrlState } from '@/utils/url'
 import SeedInput from './SeedInput.vue'
+import SettingsPanel from './SettingsPanel.vue'
 
 interface StartOptions {
   mode: ModeId
@@ -33,6 +34,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useGameStore()
+const settingsOpen = ref(false)
 const selectedMode = ref<ModeId>(props.initialMode ?? 'easy')
 const seedText = ref(
   props.initialSeed !== null && props.initialSeed !== undefined
@@ -91,6 +93,15 @@ function startGame(): void {
 <template>
   <main class="menu">
     <div class="menu-glow" aria-hidden="true"></div>
+    <button
+      type="button"
+      class="icon-btn menu-settings"
+      aria-label="打开设置"
+      @click="settingsOpen = true"
+    >
+      ⚙
+    </button>
+    <SettingsPanel :open="settingsOpen" @close="settingsOpen = false" />
     <div class="menu-inner">
       <header class="hero">
         <p class="eyebrow">MAHJONG SLIDE · 3D</p>
@@ -172,6 +183,14 @@ function startGame(): void {
   background:
     radial-gradient(600px 320px at 50% 18%, rgba(217, 179, 108, 0.09), transparent 70%),
     radial-gradient(circle at 50% 50%, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+.menu-settings {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 6;
+  font-size: 16px;
 }
 
 .menu-inner {

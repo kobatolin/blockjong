@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { boardSignature, tileById } from '@/core/board'
 import { findAnyDrag, segment, type AnyMove } from '@/core/drag'
 import { MODE_CONFIGS, totalTilesForMode } from '@/core/kinds'
@@ -7,17 +7,15 @@ import { findVisiblePartners } from '@/core/rules'
 import { formatSeed, formatSeedHex, randomSeed } from '@/core/seed'
 import { GameSession } from '@/core/session'
 import type { Dir, GameSnapshot, ModeId, SeedSource } from '@/core/types'
-import {
-  GameRenderer,
-  type DragPreviewInfo,
-  type DragStartInfo,
-  type GameRendererCallbacks,
-} from '@/render/GameRenderer'
+import { GameRenderer, type DragPreviewInfo, type DragStartInfo, type GameRendererCallbacks } from '@/render/GameRenderer'
+import { Sfx } from '@/render/audio'
 import { useGameStore } from '@/stores/game'
 import { buildShareUrl, copyText, writeUrlState } from '@/utils/url'
 import GameDialog from './GameDialog.vue'
 import HudBar from './HudBar.vue'
+import SettingsPanel from './SettingsPanel.vue'
 import Toast from './Toast.vue'
+import TutorialOverlay from './TutorialOverlay.vue'
 
 type DialogKind = 'won' | 'deadlock' | 'pause' | 'restart'
 
@@ -60,6 +58,8 @@ const props = defineProps<{ options: StartOptions }>()
 const emit = defineEmits<{ exit: [] }>()
 
 const store = useGameStore()
+const sfx = new Sfx()
+sfx.setEnabled(store.sound)
 const config = MODE_CONFIGS[props.options.mode]
 const total = totalTilesForMode(props.options.mode)
 
@@ -75,6 +75,8 @@ const elapsedMs = ref(0)
 const running = ref(false)
 const busy = ref(false)
 const dialog = ref<DialogKind | null>(null)
+const settingsOpen = ref(false)
+const tutorialOpen = ref(false)
 const restartOrigin = ref<Exclude<DialogKind, 'restart'> | null>(null)
 const canUndo = ref(false)
 const canHint = ref(true)
@@ -169,6 +171,7 @@ function syncView(): void {
 function handleWon(): void {
   if (dialog.value === 'won') return
   stopTimer()
+  sfx.win()
   const finalTime = elapsedMs.value
   if (!recorded && session.seedSource === 'random') {
     store.recordWin(session.mode, finalTime, snapshot.value.moves)
@@ -181,6 +184,7 @@ function handleWon(): void {
 function handleDeadlock(): void {
   if (dialog.value === 'deadlock') return
   stopTimer()
+  sfx.deadlock()
   dialog.value = 'deadlock'
   renderer?.setInteractive(false)
 }
@@ -189,6 +193,10 @@ function handleTap(_tileId: number, row: number, col: number): void {
   if (busy.value || dialog.value) return
   const result = session.tap(row, col)
   if (debugMode) console.info('[mahj] tap', { row, col, kind: result.kind })
+  if (result.kind === 'selected') sfx.select()
+  else if (result.kind === 'matched') sfx.match()
+  else if (result.kind === 'switched') sfx.revert()
+  else if (result.kind === 'cleared' && result.hadSelection) sfx.click()
   if (result.kind === 'matched') {
     busy.value = true
     renderer?.setInteractive(false)
@@ -280,6 +288,7 @@ function handleDragEnd(tileId: number, dir: Dir, k: number): void {
   }
 
   if (result.kind === 'matched') {
+    sfx.match()
     renderer.playMatch(result.pair, result.board, () => {
       busy.value = false
       syncView()
@@ -289,6 +298,7 @@ function handleDragEnd(tileId: number, dir: Dir, k: number): void {
   }
 
   if (result.kind === 'reverted') {
+    sfx.revert()
     renderer.playRevert(result.moved, () => {
       busy.value = false
       syncView()
@@ -317,6 +327,7 @@ function handleUndo(): void {
   }
   dialog.value = null
   restartOrigin.value = null
+  sfx.click()
   renderer?.setBoard(session.getBoard())
   renderer?.setInteractive(true)
   syncView()
@@ -332,6 +343,7 @@ function handleHint(): void {
   }
   if (move.kind === 'tap') {
     renderer?.showHint([move.a.id, move.b.id])
+    sfx.hint()
     showToast('提示：这两张可以消除')
     return
   }
@@ -342,13 +354,15 @@ function handleHint(): void {
     down: '下',
   }
   renderer?.showHint([move.move.tile.id, move.move.partner.id])
+  sfx.hint()
   showToast(
     `提示：把第 ${move.move.tile.row + 1} 行第 ${move.move.tile.col + 1} 列的牌向${dirText[move.move.dir]}拖`,
   )
 }
 
 function openPause(): void {
-  if (busy.value || dialog.value) return
+  if (busy.value || dialog.value || settingsOpen.value) return
+  sfx.click()
   dialog.value = 'pause'
   pauseTimer()
   renderer?.setInteractive(false)
@@ -359,6 +373,51 @@ function resumeGame(): void {
   dialog.value = null
   renderer?.setInteractive(true)
   if (session.phaseNow === 'idle') startTimer()
+}
+
+function toggleSound(): void {
+  store.setSound(!store.sound)
+  sfx.setEnabled(store.sound)
+  if (store.sound) sfx.click()
+}
+
+function openSettings(): void {
+  if (busy.value || settingsOpen.value || dialog.value || tutorialOpen.value) return
+  settingsOpen.value = true
+  pauseTimer()
+  renderer?.setInteractive(false)
+  sfx.click()
+}
+
+function closeSettings(): void {
+  if (!settingsOpen.value) return
+  settingsOpen.value = false
+  if (dialog.value === null) {
+    renderer?.setInteractive(true)
+    if (session.phaseNow === 'idle') startTimer()
+  }
+}
+
+const TUTORIAL_KEY = 'mahj.tutorial.v1'
+
+function shouldShowTutorial(): boolean {
+  if (debugMode) return false
+  try {
+    return globalThis.localStorage?.getItem(TUTORIAL_KEY) !== 'done'
+  } catch {
+    return true
+  }
+}
+
+function finishTutorial(): void {
+  tutorialOpen.value = false
+  try {
+    globalThis.localStorage?.setItem(TUTORIAL_KEY, 'done')
+  } catch {
+    // ignore storage errors
+  }
+  renderer?.setInteractive(dialog.value === null)
+  if (dialog.value === null && session.phaseNow === 'idle') startTimer()
 }
 
 function openRestart(): void {
@@ -420,11 +479,13 @@ function handleSameSeed(): void {
 
 async function copySeed(): Promise<void> {
   const ok = await copyText(formatSeedHex(session.seed))
+  if (ok) sfx.click()
   showToast(ok ? '种子已复制' : '复制失败')
 }
 
 async function copyLink(): Promise<void> {
   const ok = await copyText(buildShareUrl(session.mode, session.seed))
+  if (ok) sfx.click()
   showToast(ok ? '分享链接已复制' : '复制失败')
 }
 
@@ -441,12 +502,77 @@ const callbacks: GameRendererCallbacks = {
   onDragCancel: handleDragCancel,
 }
 
+watch(
+  () => store.sound,
+  (value) => sfx.setEnabled(value),
+)
+watch(
+  () => store.quality,
+  (value) => renderer?.setQuality(value),
+)
+watch(
+  () => store.motion,
+  (value) => renderer?.setMotion(value),
+)
+
 function onVisibilityChange(): void {
   if (document.hidden) {
     pauseTimer()
     return
   }
-  if (session.phaseNow === 'idle' && dialog.value === null) startTimer()
+  if (session.phaseNow === 'idle' && dialog.value === null && !settingsOpen.value && !tutorialOpen.value) {
+    startTimer()
+  }
+}
+
+function onKeydown(event: KeyboardEvent): void {
+  const target = event.target as HTMLElement | null
+  if (
+    target &&
+    (target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.tagName === 'SELECT' ||
+      target.isContentEditable)
+  ) {
+    return
+  }
+  if (event.metaKey || event.ctrlKey || event.altKey) return
+  if (tutorialOpen.value) return
+
+  if (event.key === 'Escape') {
+    if (settingsOpen.value) {
+      closeSettings()
+      event.preventDefault()
+      return
+    }
+    if (dialog.value === 'pause') {
+      resumeGame()
+      event.preventDefault()
+      return
+    }
+    if (dialog.value === 'restart') {
+      cancelRestart()
+      event.preventDefault()
+      return
+    }
+    return
+  }
+
+  if (dialog.value !== null || settingsOpen.value) return
+  const key = event.key.toLowerCase()
+  if (key === 'u') {
+    handleUndo()
+    event.preventDefault()
+  } else if (key === 'h') {
+    handleHint()
+    event.preventDefault()
+  } else if (key === 'p') {
+    openPause()
+    event.preventDefault()
+  } else if (key === 'r') {
+    openRestart()
+    event.preventDefault()
+  }
 }
 
 function installDebugBridge(): void {
@@ -497,20 +623,30 @@ function installDebugBridge(): void {
 onMounted(() => {
   if (!host.value) return
   renderer = new GameRenderer(host.value, config.rows, config.cols, callbacks)
+  renderer.setQuality(store.quality)
+  renderer.setMotion(store.motion)
   renderer.setBoard(session.getBoard())
   renderer.start()
   writeUrlState(session.mode, session.seed)
   syncView()
   startTimer()
+  if (shouldShowTutorial()) {
+    tutorialOpen.value = true
+    pauseTimer()
+    renderer.setInteractive(false)
+  }
   installDebugBridge()
   document.addEventListener('visibilitychange', onVisibilityChange)
+  document.addEventListener('keydown', onKeydown)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', onVisibilityChange)
+  document.removeEventListener('keydown', onKeydown)
   pauseTimer()
   if (toastTimer !== null) window.clearTimeout(toastTimer)
   delete (window as unknown as { __mahj?: MahjDebugApi }).__mahj
+  sfx.dispose()
   renderer?.dispose()
   renderer = null
 })
@@ -532,12 +668,15 @@ onBeforeUnmount(() => {
       :can-undo="canUndo"
       :can-hint="canHint"
       :paused="!running"
+      :sound-on="store.sound"
       @undo="handleUndo"
       @hint="handleHint"
       @restart="openRestart"
       @pause="openPause"
       @exit="exitGame"
       @copy-seed="copySeed"
+      @toggle-sound="toggleSound"
+      @settings="openSettings"
     />
 
     <GameDialog
@@ -557,6 +696,10 @@ onBeforeUnmount(() => {
       @copy-link="copyLink"
       @cancel="cancelRestart"
     />
+
+    <SettingsPanel :open="settingsOpen" @close="closeSettings" />
+
+    <TutorialOverlay v-if="tutorialOpen" @done="finishTutorial" />
 
     <Toast :message="toastMessage" :visible="toastVisible" />
   </div>
@@ -583,6 +726,11 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   touch-action: none;
+}
+
+.game-stage :deep(.board-canvas:focus-visible) {
+  outline: 2px solid rgba(217, 179, 108, 0.85);
+  outline-offset: -4px;
 }
 
 .vignette {

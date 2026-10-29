@@ -11,7 +11,53 @@ export interface ModeRecord {
 
 export type Records = Record<ModeId, ModeRecord>
 
+export type Quality = 'auto' | 'high' | 'medium' | 'low'
+export type MotionPreference = 'auto' | 'reduced'
+
+export interface GameSettings {
+  sound: boolean
+  quality: Quality
+  motion: MotionPreference
+}
+
 const RECORDS_KEY = 'mahj.records.v1'
+const SETTINGS_KEY = 'mahj.settings.v1'
+
+function defaultSettings(): GameSettings {
+  return { sound: true, quality: 'auto', motion: 'auto' }
+}
+
+function loadSettings(): GameSettings {
+  const settings = defaultSettings()
+  try {
+    const raw = globalThis.localStorage?.getItem(SETTINGS_KEY)
+    if (!raw) return settings
+    const parsed = JSON.parse(raw) as Partial<GameSettings>
+    if (typeof parsed.sound === 'boolean') settings.sound = parsed.sound
+    if (
+      parsed.quality === 'auto' ||
+      parsed.quality === 'high' ||
+      parsed.quality === 'medium' ||
+      parsed.quality === 'low'
+    ) {
+      settings.quality = parsed.quality
+    }
+    if (parsed.motion === 'auto' || parsed.motion === 'reduced') {
+      settings.motion = parsed.motion
+    }
+  } catch {
+    // ignore corrupt storage
+  }
+  return settings
+}
+
+function persistSettings(settings: GameSettings): void {
+  try {
+    globalThis.localStorage?.setItem(SETTINGS_KEY, JSON.stringify(settings))
+  } catch {
+    // storage may be unavailable/private mode
+  }
+}
 
 function emptyRecord(): ModeRecord {
   return { bestTimeMs: null, bestMoves: null, wins: 0 }
@@ -64,7 +110,7 @@ export const useGameStore = defineStore('game', {
   state: () => ({
     records: loadRecords(),
     serverVersion: '',
-    sound: true,
+    ...loadSettings(),
   }),
   actions: {
     recordWin(mode: ModeId, timeMs: number, moves: number) {
@@ -82,6 +128,18 @@ export const useGameStore = defineStore('game', {
     },
     setServerVersion(version: string) {
       this.serverVersion = version
+    },
+    setSound(value: boolean) {
+      this.sound = value
+      persistSettings({ sound: this.sound, quality: this.quality, motion: this.motion })
+    },
+    setQuality(value: Quality) {
+      this.quality = value
+      persistSettings({ sound: this.sound, quality: this.quality, motion: this.motion })
+    },
+    setMotion(value: MotionPreference) {
+      this.motion = value
+      persistSettings({ sound: this.sound, quality: this.quality, motion: this.motion })
     },
   },
 })

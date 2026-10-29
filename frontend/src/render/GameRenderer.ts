@@ -14,10 +14,14 @@ import { createTable, type TableObjects } from './table'
 import { TileFactory } from './tileFactory'
 import { TweenManager } from './tween'
 import { createCanvas, roundRectPath } from './canvas'
+import { ParticleBurst } from './particles'
 
 const CAMERA_FOV = 34
 const CAMERA_PITCH = THREE.MathUtils.degToRad(60)
 const DRAG_THRESHOLD = 6
+
+export type RenderQuality = 'auto' | 'high' | 'medium' | 'low'
+export type MotionSetting = 'auto' | 'reduced'
 
 export interface DragStartInfo {
   ranges: Record<Dir, number>
@@ -129,6 +133,7 @@ export class GameRenderer {
   private readonly ghostMaterial: THREE.MeshBasicMaterial
   private readonly ghosts: THREE.Mesh[] = []
   private readonly ghostGroup = new THREE.Group()
+  private readonly particles: ParticleBurst
 
   private animationFrame = 0
   private disposed = false
@@ -137,6 +142,12 @@ export class GameRenderer {
   private selectedId: number | null = null
   private partnerIds: number[] = []
   private hintIds: number[] = []
+  private quality: RenderQuality = 'auto'
+  private autoDowngraded = false
+  private reducedMotion = false
+  private particleCount = 28
+  private frameSeconds = 0
+  private frameSamples = 0
   private hintUntil = 0
   private pointerDown: PointerDownState | null = null
   private drag: DragState | null = null
@@ -164,6 +175,12 @@ export class GameRenderer {
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
     this.renderer.domElement.className = 'board-canvas'
+    this.renderer.domElement.setAttribute('role', 'application')
+    this.renderer.domElement.setAttribute(
+      'aria-label',
+      '3D 麻将棋盘。点选两张牌，或按住一张牌沿行或列拖动。',
+    )
+    this.renderer.domElement.tabIndex = 0
     container.appendChild(this.renderer.domElement)
 
     this.scene.background = new THREE.Color(0x07120f)
@@ -238,9 +255,13 @@ export class GameRenderer {
     this.ghostGroup.position.y = 0.018
     this.scene.add(this.ghostGroup)
 
+    this.particles = new ParticleBurst(this.scene)
+
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.resizeObserver.observe(container)
     this.resize()
+    this.setQuality('auto')
+    this.setMotion('auto')
     this.bindEvents()
   }
 
@@ -251,10 +272,65 @@ export class GameRenderer {
       this.animationFrame = requestAnimationFrame(tick)
       const dt = Math.min(this.clock.getDelta(), 0.05)
       this.tweens.update(dt)
+      this.particles.update(dt)
+      this.recordFrame(dt)
       this.animateAmbient()
       this.renderer.render(this.scene, this.camera)
     }
     this.animationFrame = requestAnimationFrame(tick)
+  }
+
+  setQuality(quality: RenderQuality): void {
+    this.quality = quality
+    if (quality === 'auto') this.autoDowngraded = false
+    this.applyQuality()
+  }
+
+  setMotion(motion: MotionSetting): void {
+    const systemReduced =
+      motion === 'auto' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    this.reducedMotion = motion === 'reduced' || systemReduced
+  }
+
+  private effectiveQuality(): Exclude<RenderQuality, 'auto'> {
+    if (this.quality !== 'auto') return this.quality
+    return this.autoDowngraded ? 'medium' : 'high'
+  }
+
+  private applyQuality(): void {
+    const effective = this.effectiveQuality()
+    const dprCap = effective === 'high' ? 2 : effective === 'medium' ? 1.75 : 1.25
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, dprCap))
+
+    const shadows = effective !== 'low'
+    this.renderer.shadowMap.enabled = shadows
+    this.keyLight.castShadow = shadows
+    const shadowSize = effective === 'high' ? 2048 : 1024
+    if (this.keyLight.shadow.mapSize.x !== shadowSize) {
+      this.keyLight.shadow.mapSize.set(shadowSize, shadowSize)
+      this.keyLight.shadow.map?.dispose()
+      this.keyLight.shadow.map = null
+    }
+
+    this.particleCount = effective === 'high' ? 28 : effective === 'medium' ? 14 : 0
+    this.particles.setCount(this.particleCount)
+    this.resize()
+  }
+
+  private recordFrame(dt: number): void {
+    if (this.quality !== 'auto' || this.autoDowngraded) return
+    this.frameSeconds += dt
+    this.frameSamples += 1
+    if (this.frameSeconds < 2.5) return
+    const average = this.frameSeconds / Math.max(1, this.frameSamples)
+    this.frameSeconds = 0
+    this.frameSamples = 0
+    if (average > 0.024) {
+      this.autoDowngraded = true
+      this.applyQuality()
+    }
   }
 
   setBoard(board: BoardSnapshot): void {
@@ -366,14 +442,23 @@ export class GameRenderer {
       rotation: view.group.rotation.y,
     }))
 
+    if (!this.reducedMotion && this.particleCount > 0) {
+      const midX =
+        (tileX(pair[0].col, this.cols) + tileX(pair[1].col, this.cols)) / 2
+      const midZ =
+        (tileZ(pair[0].row, this.rows) + tileZ(pair[1].row, this.rows)) / 2
+      this.particles.emit(midX, TILE_H + 0.25, midZ, this.particleCount)
+    }
+
     this.tweens.add({
-      duration: 0.42,
+      duration: this.reducedMotion ? 0.16 : 0.42,
       onUpdate: (t) => {
         for (const start of starts) {
-          start.view.group.position.y = start.y + 0.55 * t
+          start.view.group.position.y = start.y + (this.reducedMotion ? 0.2 : 0.55) * t
           const scale = Math.max(0.05, start.scale * (1 - 0.82 * t))
           start.view.group.scale.setScalar(scale)
-          start.view.group.rotation.y = start.rotation + 0.42 * t
+          start.view.group.rotation.y =
+            start.rotation + (this.reducedMotion ? 0.1 : 0.42) * t
         }
       },
       onComplete: () => {
@@ -408,7 +493,7 @@ export class GameRenderer {
     }))
 
     this.tweens.add({
-      duration: 0.28,
+      duration: this.reducedMotion ? 0.12 : 0.28,
       ease: (t) => 1 - Math.pow(1 - t, 3),
       onUpdate: (t) => {
         for (const start of starts) {
@@ -458,6 +543,7 @@ export class GameRenderer {
     ;(this.dragPartnerMarker.material as THREE.Material).dispose()
     this.ghostGeometry.dispose()
     this.ghostMaterial.dispose()
+    this.particles.dispose()
     for (const marker of [...this.partnerMarkers, ...this.hintMarkers]) {
       marker.geometry.dispose()
       ;(marker.material as THREE.Material).dispose()
@@ -782,21 +868,33 @@ export class GameRenderer {
   private animateAmbient(): void {
     const now = performance.now()
 
-    const haloScale = 1 + 0.05 * Math.sin(now * 0.004)
-    this.selectionHalo.scale.setScalar(haloScale)
+    if (this.reducedMotion) {
+      this.selectionHalo.scale.setScalar(1)
+      this.partnerMarkers.forEach((marker) => {
+        if (!marker.visible) return
+        const baseY = marker.userData.baseY
+        if (typeof baseY === 'number') marker.position.y = baseY
+      })
+      this.hintMarkers.forEach((marker) => {
+        if (marker.visible) marker.position.y = TILE_H + 0.36
+      })
+    } else {
+      const haloScale = 1 + 0.05 * Math.sin(now * 0.004)
+      this.selectionHalo.scale.setScalar(haloScale)
 
-    this.partnerMarkers.forEach((marker, index) => {
-      if (!marker.visible) return
-      const baseY = marker.userData.baseY ?? marker.position.y
-      marker.position.y = baseY + Math.sin(now * 0.004 + index) * 0.03
-      marker.rotation.y += 0.02
-    })
+      this.partnerMarkers.forEach((marker, index) => {
+        if (!marker.visible) return
+        const baseY = marker.userData.baseY ?? marker.position.y
+        marker.position.y = baseY + Math.sin(now * 0.004 + index) * 0.03
+        marker.rotation.y += 0.02
+      })
 
-    this.hintMarkers.forEach((marker, index) => {
-      if (!marker.visible) return
-      marker.position.y = TILE_H + 0.36 + Math.sin(now * 0.005 + index) * 0.04
-      marker.rotation.y += 0.03
-    })
+      this.hintMarkers.forEach((marker, index) => {
+        if (!marker.visible) return
+        marker.position.y = TILE_H + 0.36 + Math.sin(now * 0.005 + index) * 0.04
+        marker.rotation.y += 0.03
+      })
+    }
 
     if (this.hintIds.length > 0 && now > this.hintUntil) {
       this.hintIds = []

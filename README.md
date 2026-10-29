@@ -4,7 +4,7 @@
 >
 > 三种规模：简单 8×9、中等 9×12、完整 12×12。
 >
-> **当前状态：M4 完成，M5 打磨中。** 三种模式均可完整游玩：菜单、种子输入、3D 对局、点选/拖拽、撤销/提示、暂停、结算、本地记录与移动端布局已接通；核心逻辑 50 个单测通过。音效、粒子与画质设置仍在 M5。
+> **当前状态：M6 完成，可交付。** 三种模式可完整游玩；音效、消除粒子、画质/音效设置、减少动效与首次三步引导已加入。核心逻辑 50 个单测通过，`scripts/build.cmd -Test` 一键构建通过，并完成 Edge + Playwright 真实 WebGL2 回归。
 
 ---
 
@@ -15,6 +15,9 @@
 - **后端只做资源分发**：FastAPI 提供模式配置、静态资源与生产环境的 SPA 托管，不保存对局状态。
 - **程序化牌面**：42 种牌面（筒/索/万/字/花）由 Canvas 2D 生成，不依赖图片素材。
 - **可复现布局**：同模式 + 同种子生成同一棋盘，支持复制种子与分享链接。
+- **声音与画质**：程序化 Web Audio 音效、可静音；画质自动/高/中/低，低画质关闭阴影与粒子；减少动效。
+- **首次引导**：第一次进入对局时显示 3 步玩法说明，可跳过，之后不再出现。
+- **快捷键**：`U` 撤销、`H` 提示、`P` 暂停、`R` 重开、`Esc` 关闭弹窗。
 
 ## 玩法
 
@@ -69,6 +72,13 @@
 ## 开发运行
 
 ```powershell
+# 一条命令启动后端 + 前端（需要先安装依赖，见下方说明）
+.\scripts\dev.cmd -Sandbox
+```
+
+也可以分别启动：
+
+```powershell
 # 前端依赖（必须使用项目内缓存；见环境文档）
 cd frontend
 npm --cache ..\.npm-cache install
@@ -82,11 +92,13 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 .\.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 ```
 
-> 本会话/DSH 沙箱中请用 `npm run dev:sandbox`、`npm run build:sandbox`、`npm run test:sandbox`；普通环境直接用 `dev/build/test`。原因见 [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)。
+> 本会话/DSH 沙箱中请用 `npm run dev:sandbox`、`npm run build:sandbox`、`npm run test:sandbox`，以及 `scripts\dev.cmd -Sandbox` / `scripts\build.cmd -Sandbox`；普通环境直接用 `dev/build/test` 和 `scripts\dev.cmd` / `scripts\build.cmd`。原因见 [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)。
 
 生产构建：
 
 ```powershell
+.\scripts\build.cmd -Sandbox -Test   # 单测 + 构建 + 后端 py_compile
+# 或
 cd frontend
 npm run build          # 产出 frontend/dist
 cd ..\backend
@@ -104,7 +116,22 @@ WebGL 自检：双击 [`scripts/check-webgl.html`](scripts/check-webgl.html)，�
 
 ![完整模式 144 张](docs/screenshots/game-full.png)
 
+![首次三步引导](docs/screenshots/tutorial.png)
+
+![设置](docs/screenshots/settings.png)
+
+![移动端](docs/screenshots/mobile.png)
+
 ![暂停弹窗](docs/screenshots/pause.png)
+
+## 验收
+
+- **50 个 Vitest 用例**：种子、牌组、可见性、拖动、生成、撤销、Session、URL。
+- `npm run typecheck`、`npm run build:sandbox`、后端 `py_compile` 通过。
+- `scripts\build.cmd -Sandbox -Test` 一键构建通过。
+- Edge + Playwright（真实 WebGL2）验证：点选 72→70、指针拖动 70→68、同一 `mode+seed` 布局一致、144 张完整棋盘、暂停/死局/胜利流程、教程/设置持久化、低画质、快捷键、移动端 390×844；无 console error。
+- 截图见 [`docs/screenshots`](docs/screenshots/)。
+- 规则细节与测试矩阵见 [`docs/GAME_RULES.md`](docs/GAME_RULES.md) 与 [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md#132-手动回归矩阵m4m6)。
 
 ## 项目结构
 
@@ -134,8 +161,8 @@ mahj/
 - [x] **M2** 纯 TS 核心引擎与单元测试（生成、种子、可见性、拖动、消除、撤销、死局）
 - [x] **M3** 42 种牌面、相机、拾取与 3D 动效
 - [x] **M4** 菜单、HUD、弹窗、种子、记录、响应式
-- [ ] **M5** 音效、画质/音效设置、粒子、性能降级、无障碍
-- [ ] **M6** 构建脚本、回归验收、交付
+- [x] **M5** 音效、画质/音效设置、粒子、性能降级、无障碍、首次引导
+- [x] **M6** 构建脚本、回归验收、交付
 
 ## 环境要求
 
