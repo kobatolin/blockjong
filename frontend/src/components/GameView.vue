@@ -1,0 +1,594 @@
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { boardSignature, tileById } from '@/core/board'
+import { findAnyDrag, segment, type AnyMove } from '@/core/drag'
+import { MODE_CONFIGS, totalTilesForMode } from '@/core/kinds'
+import { findVisiblePartners } from '@/core/rules'
+import { formatSeed, formatSeedHex, randomSeed } from '@/core/seed'
+import { GameSession } from '@/core/session'
+import type { Dir, GameSnapshot, ModeId, SeedSource } from '@/core/types'
+import {
+  GameRenderer,
+  type DragPreviewInfo,
+  type DragStartInfo,
+  type GameRendererCallbacks,
+} from '@/render/GameRenderer'
+import { useGameStore } from '@/stores/game'
+import { buildShareUrl, copyText, writeUrlState } from '@/utils/url'
+import GameDialog from './GameDialog.vue'
+import HudBar from './HudBar.vue'
+import Toast from './Toast.vue'
+
+type DialogKind = 'won' | 'deadlock' | 'pause' | 'restart'
+
+interface StartOptions {
+  mode: ModeId
+  seed: number
+  seedSource: SeedSource
+}
+
+interface MahjDebugApi {
+  snapshot: () => GameSnapshot
+  signature: () => string
+  hint: () => AnyMove | null
+  findDrag: () => {
+    tileId: number
+    row: number
+    col: number
+    dir: Dir
+    k: number
+    partnerId: number
+  } | null
+  cellToScreen: (row: number, col: number) => { x: number; y: number } | null
+  preview: (tileId: number, dir: Dir, k: number) => {
+    kind: string
+    k: number
+    kMax: number
+    partnerId: number | null
+    moved: Array<{ id: number; row: number; col: number }>
+  } | null
+  tap: (row: number, col: number) => void
+  drag: (tileId: number, dir: Dir, k: number) => void
+  uiState: () => {
+    busy: boolean
+    dialog: DialogKind | null
+    interactive: boolean
+  } | null
+}
+
+const props = defineProps<{ options: StartOptions }>()
+const emit = defineEmits<{ exit: [] }>()
+
+const store = useGameStore()
+const config = MODE_CONFIGS[props.options.mode]
+const total = totalTilesForMode(props.options.mode)
+
+let session = GameSession.create(
+  props.options.mode,
+  props.options.seed,
+  props.options.seedSource,
+)
+
+const host = ref<HTMLDivElement | null>(null)
+const snapshot = ref<GameSnapshot>(session.snapshot())
+const elapsedMs = ref(0)
+const running = ref(false)
+const busy = ref(false)
+const dialog = ref<DialogKind | null>(null)
+const restartOrigin = ref<Exclude<DialogKind, 'restart'> | null>(null)
+const canUndo = ref(false)
+const canHint = ref(true)
+const partnerIds = ref<number[]>([])
+const seedLabel = ref(formatSeed(session.seed))
+const isCustom = ref(session.seedSource === 'custom')
+const toastMessage = ref('')
+const toastVisible = ref(false)
+const debugMode = new URLSearchParams(window.location.search).get('debug') === '1'
+
+let renderer: GameRenderer | null = null
+let timerId: number | null = null
+let timerStartedAt = 0
+let accumulatedMs = 0
+let timerRunning = false
+let toastTimer: number | null = null
+let recorded = false
+
+function elapsedNow(): number {
+  return accumulatedMs + (timerRunning ? performance.now() - timerStartedAt : 0)
+}
+
+function startTimer(): void {
+  if (timerRunning) return
+  timerStartedAt = performance.now()
+  timerRunning = true
+  running.value = true
+  if (timerId !== null) window.clearInterval(timerId)
+  timerId = window.setInterval(() => {
+    elapsedMs.value = elapsedNow()
+  }, 200)
+}
+
+function pauseTimer(): void {
+  if (!timerRunning) return
+  accumulatedMs += performance.now() - timerStartedAt
+  timerRunning = false
+  running.value = false
+  elapsedMs.value = accumulatedMs
+  if (timerId !== null) {
+    window.clearInterval(timerId)
+    timerId = null
+  }
+}
+
+function stopTimer(): void {
+  pauseTimer()
+}
+
+function resetTimer(): void {
+  pauseTimer()
+  accumulatedMs = 0
+  elapsedMs.value = 0
+  startTimer()
+}
+
+function showToast(message: string): void {
+  toastMessage.value = message
+  toastVisible.value = true
+  if (toastTimer !== null) window.clearTimeout(toastTimer)
+  toastTimer = window.setTimeout(() => {
+    toastVisible.value = false
+  }, 1900)
+}
+
+function syncView(): void {
+  const snap = session.snapshot()
+  snapshot.value = snap
+
+  const partners: number[] = []
+  if (snap.selectedId !== null) {
+    const tile = tileById(snap.board, snap.selectedId)
+    if (tile) {
+      for (const partner of findVisiblePartners(snap.board, tile)) {
+        partners.push(partner.id)
+      }
+    }
+  }
+  partnerIds.value = partners
+
+  canUndo.value = session.historySize > 0 && snap.phase !== 'won'
+  canHint.value = snap.phase === 'idle' && !busy.value
+  renderer?.setState(snap.selectedId, partners)
+
+  if (snap.phase === 'won') {
+    handleWon()
+  } else if (snap.phase === 'deadlock') {
+    handleDeadlock()
+  }
+}
+
+function handleWon(): void {
+  if (dialog.value === 'won') return
+  stopTimer()
+  const finalTime = elapsedMs.value
+  if (!recorded && session.seedSource === 'random') {
+    store.recordWin(session.mode, finalTime, snapshot.value.moves)
+    recorded = true
+  }
+  dialog.value = 'won'
+  renderer?.setInteractive(false)
+}
+
+function handleDeadlock(): void {
+  if (dialog.value === 'deadlock') return
+  stopTimer()
+  dialog.value = 'deadlock'
+  renderer?.setInteractive(false)
+}
+
+function handleTap(_tileId: number, row: number, col: number): void {
+  if (busy.value || dialog.value) return
+  const result = session.tap(row, col)
+  if (debugMode) console.info('[mahj] tap', { row, col, kind: result.kind })
+  if (result.kind === 'matched') {
+    busy.value = true
+    renderer?.setInteractive(false)
+    if (!renderer) {
+      busy.value = false
+      syncView()
+      return
+    }
+    renderer.playMatch(result.pair, result.board, () => {
+      busy.value = false
+      syncView()
+      renderer?.setInteractive(dialog.value === null)
+      if (debugMode) {
+        console.info('[mahj] tapMatchDone', {
+          busy: busy.value,
+          dialog: dialog.value,
+          interactive: renderer?.isInteractive(),
+        })
+      }
+    })
+    return
+  }
+  if (result.kind === 'switched') {
+    showToast(result.reason === 'blocked' ? '中间有牌挡住' : '两张牌不一样')
+  }
+  syncView()
+}
+
+function handleDragStart(
+  _tileId: number,
+  row: number,
+  col: number,
+  dir: Dir,
+): DragStartInfo | null {
+  if (busy.value || dialog.value) return null
+  const info = session.dragInfo(row, col)
+  if (!info) return null
+  const board = session.getBoard()
+  const segmentIds = segment(board, info.tile, dir).map((tile) => tile.id)
+  if (debugMode) {
+    console.info('[mahj] dragStart', { row, col, dir, ranges: info.ranges, segmentIds })
+  }
+  return {
+    ranges: info.ranges,
+    segmentIds,
+    anchorId: session.selected,
+  }
+}
+
+function handleDragMove(tileId: number, dir: Dir, k: number): DragPreviewInfo | null {
+  if (busy.value || dialog.value) return null
+  const resolution = session.dragPreview(tileId, dir, k)
+  if (!resolution) return null
+  if (debugMode) {
+    console.info('[mahj] dragMove', {
+      tileId,
+      dir,
+      k: resolution.k,
+      kind: resolution.kind,
+      partner: resolution.partner?.id ?? null,
+    })
+  }
+  return {
+    k: resolution.k,
+    kMax: resolution.kMax,
+    partnerId: resolution.partner?.id ?? null,
+    movedIds: resolution.moved.map((tile) => tile.id),
+    targetCells: resolution.moved.map((tile) => ({ row: tile.row, col: tile.col })),
+  }
+}
+
+function handleDragEnd(tileId: number, dir: Dir, k: number): void {
+  if (busy.value || dialog.value) {
+    renderer?.resetDrag()
+    return
+  }
+
+  busy.value = true
+  renderer?.setInteractive(false)
+  const result = session.dragEnd(tileId, dir, k)
+  if (debugMode) {
+    console.info('[mahj] dragEnd', { tileId, dir, k, kind: result.kind })
+  }
+
+  if (!renderer) {
+    busy.value = false
+    syncView()
+    return
+  }
+
+  if (result.kind === 'matched') {
+    renderer.playMatch(result.pair, result.board, () => {
+      busy.value = false
+      syncView()
+      renderer?.setInteractive(dialog.value === null)
+    })
+    return
+  }
+
+  if (result.kind === 'reverted') {
+    renderer.playRevert(result.moved, () => {
+      busy.value = false
+      syncView()
+      renderer?.setInteractive(dialog.value === null)
+    })
+    return
+  }
+
+  renderer.resetDrag()
+  busy.value = false
+  syncView()
+  renderer.setInteractive(true)
+}
+
+function handleDragCancel(): void {
+  busy.value = false
+  renderer?.resetDrag()
+  syncView()
+}
+
+function handleUndo(): void {
+  if (busy.value) return
+  if (!session.undo()) {
+    showToast('没有可撤销的操作')
+    return
+  }
+  dialog.value = null
+  restartOrigin.value = null
+  renderer?.setBoard(session.getBoard())
+  renderer?.setInteractive(true)
+  syncView()
+  if (session.phaseNow === 'idle') startTimer()
+}
+
+function handleHint(): void {
+  if (busy.value || dialog.value) return
+  const move = session.hint()
+  if (!move) {
+    showToast('当前没有可行操作')
+    return
+  }
+  if (move.kind === 'tap') {
+    renderer?.showHint([move.a.id, move.b.id])
+    showToast('提示：这两张可以消除')
+    return
+  }
+  const dirText: Record<Dir, string> = {
+    left: '左',
+    right: '右',
+    up: '上',
+    down: '下',
+  }
+  renderer?.showHint([move.move.tile.id, move.move.partner.id])
+  showToast(
+    `提示：把第 ${move.move.tile.row + 1} 行第 ${move.move.tile.col + 1} 列的牌向${dirText[move.move.dir]}拖`,
+  )
+}
+
+function openPause(): void {
+  if (busy.value || dialog.value) return
+  dialog.value = 'pause'
+  pauseTimer()
+  renderer?.setInteractive(false)
+}
+
+function resumeGame(): void {
+  if (dialog.value !== 'pause') return
+  dialog.value = null
+  renderer?.setInteractive(true)
+  if (session.phaseNow === 'idle') startTimer()
+}
+
+function openRestart(): void {
+  if (busy.value || dialog.value === 'restart') return
+  restartOrigin.value =
+    dialog.value === 'won' || dialog.value === 'deadlock' || dialog.value === 'pause'
+      ? dialog.value
+      : null
+  dialog.value = 'restart'
+  pauseTimer()
+  renderer?.setInteractive(false)
+}
+
+function cancelRestart(): void {
+  if (dialog.value !== 'restart') return
+  const origin = restartOrigin.value
+  restartOrigin.value = null
+  dialog.value = origin
+  renderer?.setInteractive(origin === null)
+  if (origin === null && session.phaseNow === 'idle') startTimer()
+}
+
+function confirmRestart(): void {
+  startSession(session.mode, session.seed, 'custom')
+}
+
+function handleRestartAction(): void {
+  if (dialog.value === 'restart') confirmRestart()
+  else openRestart()
+}
+
+function startSession(mode: ModeId, seed: number, seedSource: SeedSource): void {
+  pauseTimer()
+  session = GameSession.create(mode, seed, seedSource)
+  snapshot.value = session.snapshot()
+  seedLabel.value = formatSeed(session.seed)
+  isCustom.value = seedSource === 'custom'
+  partnerIds.value = []
+  dialog.value = null
+  restartOrigin.value = null
+  busy.value = false
+  recorded = false
+  accumulatedMs = 0
+  elapsedMs.value = 0
+  renderer?.setBoard(session.getBoard())
+  renderer?.setInteractive(true)
+  writeUrlState(mode, seed)
+  syncView()
+  startTimer()
+}
+
+function handleNewGame(): void {
+  startSession(session.mode, randomSeed(), 'random')
+}
+
+function handleSameSeed(): void {
+  startSession(session.mode, session.seed, 'custom')
+}
+
+async function copySeed(): Promise<void> {
+  const ok = await copyText(formatSeedHex(session.seed))
+  showToast(ok ? '种子已复制' : '复制失败')
+}
+
+async function copyLink(): Promise<void> {
+  const ok = await copyText(buildShareUrl(session.mode, session.seed))
+  showToast(ok ? '分享链接已复制' : '复制失败')
+}
+
+function exitGame(): void {
+  pauseTimer()
+  emit('exit')
+}
+
+const callbacks: GameRendererCallbacks = {
+  onTap: handleTap,
+  onDragStart: handleDragStart,
+  onDragMove: handleDragMove,
+  onDragEnd: handleDragEnd,
+  onDragCancel: handleDragCancel,
+}
+
+function onVisibilityChange(): void {
+  if (document.hidden) {
+    pauseTimer()
+    return
+  }
+  if (session.phaseNow === 'idle' && dialog.value === null) startTimer()
+}
+
+function installDebugBridge(): void {
+  if (new URLSearchParams(window.location.search).get('debug') !== '1') return
+  const api: MahjDebugApi = {
+    snapshot: () => session.snapshot(),
+    signature: () => boardSignature(session.getBoard()),
+    hint: () => session.hint(),
+    findDrag: () => {
+      const move = findAnyDrag(session.getBoard())
+      if (!move) return null
+      return {
+        tileId: move.tile.id,
+        row: move.tile.row,
+        col: move.tile.col,
+        dir: move.dir,
+        k: move.k,
+        partnerId: move.partner.id,
+      }
+    },
+    cellToScreen: (row, col) => renderer?.cellToScreen(row, col) ?? null,
+    preview: (tileId, dir, k) => {
+      const resolution = session.dragPreview(tileId, dir, k)
+      if (!resolution) return null
+      return {
+        kind: resolution.kind,
+        k: resolution.k,
+        kMax: resolution.kMax,
+        partnerId: resolution.partner?.id ?? null,
+        moved: resolution.moved.map((tile) => ({
+          id: tile.id,
+          row: tile.row,
+          col: tile.col,
+        })),
+      }
+    },
+    tap: (row, col) => handleTap(-1, row, col),
+    drag: (tileId, dir, k) => handleDragEnd(tileId, dir, k),
+    uiState: () => ({
+      busy: busy.value,
+      dialog: dialog.value,
+      interactive: renderer?.isInteractive() ?? false,
+    }),
+  }
+  ;(window as unknown as { __mahj?: MahjDebugApi }).__mahj = api
+}
+
+onMounted(() => {
+  if (!host.value) return
+  renderer = new GameRenderer(host.value, config.rows, config.cols, callbacks)
+  renderer.setBoard(session.getBoard())
+  renderer.start()
+  writeUrlState(session.mode, session.seed)
+  syncView()
+  startTimer()
+  installDebugBridge()
+  document.addEventListener('visibilitychange', onVisibilityChange)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  pauseTimer()
+  if (toastTimer !== null) window.clearTimeout(toastTimer)
+  delete (window as unknown as { __mahj?: MahjDebugApi }).__mahj
+  renderer?.dispose()
+  renderer = null
+})
+</script>
+
+<template>
+  <div class="game-view">
+    <div ref="host" class="game-stage"></div>
+    <div class="vignette" aria-hidden="true"></div>
+
+    <HudBar
+      :mode-name="config.name"
+      :remaining="snapshot.remaining"
+      :total="total"
+      :moves="snapshot.moves"
+      :elapsed-ms="elapsedMs"
+      :seed-label="seedLabel"
+      :is-custom="isCustom"
+      :can-undo="canUndo"
+      :can-hint="canHint"
+      :paused="!running"
+      @undo="handleUndo"
+      @hint="handleHint"
+      @restart="openRestart"
+      @pause="openPause"
+      @exit="exitGame"
+      @copy-seed="copySeed"
+    />
+
+    <GameDialog
+      :kind="dialog"
+      :time-ms="elapsedMs"
+      :moves="snapshot.moves"
+      :remaining="snapshot.remaining"
+      :seed-label="seedLabel"
+      :is-custom="isCustom"
+      :can-undo="canUndo"
+      @resume="resumeGame"
+      @undo="handleUndo"
+      @restart="handleRestartAction"
+      @new-game="handleNewGame"
+      @same-seed="handleSameSeed"
+      @exit="exitGame"
+      @copy-link="copyLink"
+      @cancel="cancelRestart"
+    />
+
+    <Toast :message="toastMessage" :visible="toastVisible" />
+  </div>
+</template>
+
+<style scoped>
+.game-view {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(1200px 700px at 50% 20%, #12382e 0%, #07120f 58%, #040b09 100%);
+}
+
+.game-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.game-stage :deep(.board-canvas) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 45%, transparent 42%, rgba(0, 0, 0, 0.5) 100%);
+}
+</style>

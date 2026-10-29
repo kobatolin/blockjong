@@ -176,7 +176,7 @@ SetNamedSecurityInfoW failed (Win32 5): grantWrite(D:\workspace\mahj)
 | 约束 | 影响 | 应对 |
 | --- | --- | --- |
 | 只允许写工作区内路径 | npm/pip/uv 默认缓存在用户目录，会失败 | 所有缓存指向 `D:\workspace\mahj\.*-cache` |
-| 浏览器进程被沙箱阻断 | 无法自动截图/跑 Playwright | 手动打开 `check-webgl.html`；验收由真实浏览器完成 |
+| 浏览器进程被沙箱阻断 | 无法自动截图/跑 Playwright（普通沙箱） | 切完整权限后用 Edge + Playwright；否则手动打开 `check-webgl.html` |
 | pnpm 缺失 | 不能用 pnpm 工作流 | 统一 npm + `package-lock.json` |
 | Python 依赖未装 | 后端暂不可启动 | M1 建 venv 并安装 |
 | 显卡信息不可读 | 无法预判 GPU 性能 | 运行时自适应降级 + 手动画质档 |
@@ -215,14 +215,15 @@ git config --global user.email
 ## 9. M1/M2 实测状态（2026-10-29）
 
 - [x] 前端依赖安装成功（Vite 8.3.5、Three 0.186.1、Vue 3.5.44、Vitest 5.0.5、`@types/three` 0.186.0）。
-- [x] `npm run test:sandbox`：5 个测试文件、46 个用例全部通过。
+- [x] `npm run test:sandbox`：6 个测试文件、50 个用例全部通过。
 - [x] `npm run typecheck`：通过。
-- [x] `npm run build:sandbox`：产出 `frontend/dist`（JS 约 622KB / gzip 165KB，Three.js 体积警告可接受）。
+- [x] `npm run build:sandbox`：产出 `frontend/dist`（JS 约 676KB / gzip 184KB，Three.js 体积警告可接受）。
 - [x] 后端 `uv venv` + `uv pip install`：FastAPI 0.162.0、Uvicorn 0.54.0、Pydantic 2.14.1。
 - [x] `py_compile` 通过。
 - [x] `/api/health`、`/api/config`、`/`（SPA）、`/api/assets` 路径穿越 404 均验证通过。
-- [ ] 真实浏览器 WebGL2 与画面人工验收（会话沙箱无法启动浏览器）。
-- [ ] 完整玩法（M3/M4）。
+- [x] Edge + Playwright（完整权限）实测：WebGL2 可用；点选消除（72→70）、指针拖动消除（70→68）、同种子复现、144 张完整棋盘、暂停/死局弹窗、移动端 390×844 布局均通过；无页面 console error。
+- [ ] M5 打磨（音效、粒子、画质设置、无障碍）。
+- [ ] M6 交付（脚本、回归清单、最终截图）。
 
 ---
 
@@ -298,8 +299,19 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 
 ### 11.6 浏览器验收
 
-会话沙箱仍无法启动 Edge，因此：
+**完整权限下可用**：`playwright-core` + 本机 Edge（`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`）可以启动无头浏览器并完成：
 
-- 构建、类型、单测、后端接口均可自动验证；
-- 3D 画面、纹理朝向、相机适配、拖拽手感需要用户在真实浏览器中验收；
-- 可打开 `scripts/check-webgl.html` 先确认 WebGL2；再用 `npm run dev:sandbox` 或 FastAPI 托管 `frontend/dist` 查看游戏。
+- 菜单/完整棋盘/暂停/死局/移动端截图；
+- 真实点击两张牌消除（HUD 72→70、步数 0→1）；
+- 真实指针拖拽消除（70→68）；
+- 同一 `?mode=easy&seed=12345` 两次开局的 `boardSignature` 完全一致；
+- 144 张完整模式棋盘 WebGL2 渲染；
+- 无 console error（favicon 已补）。
+
+Playwright 仅装在 `.tmp/verify`（不提交，不进入 `package.json`）；普通沙箱中浏览器进程仍会被拒绝，此时请手动验收：
+
+- 打开 `scripts/check-webgl.html` 确认 WebGL2；
+- `npm run dev:sandbox`，或让 FastAPI 托管 `frontend/dist`；
+- 用鼠标/触屏检查点选、拖动、暂停、结算。
+
+调试参数：`?debug=1` 会在 `window.__mahj` 暴露只读快照、hint、findDrag、cellToScreen、tap/drag 与 uiState，供自动化验收使用；普通用户不会看到。

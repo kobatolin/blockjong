@@ -128,7 +128,8 @@ export function createTable(rows: number, cols: number): TableObjects {
   const matTexture = makeMatTexture(width + 3.0, depth + 3.0)
   const matMaterial = new THREE.MeshStandardMaterial({
     map: matTexture,
-    transparent: true,
+    alphaTest: 0.5,
+    transparent: false,
     roughness: 0.92,
     metalness: 0,
   })

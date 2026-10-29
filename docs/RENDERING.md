@@ -77,12 +77,12 @@ Scene
 │   │   └── face          PlaneGeometry + 牌面纹理
 │   └── ...
 ├── fxLayer
-│   ├── selectionHalo     选中光环（加法混合）
-│   ├── partnerMarkers    可配对标记池
+│   ├── selectionHalo     选中金色圆角描边（牌面上方）
+│   ├── partnerMarkers    可配对标记 + 淡金描边
 │   ├── ghostCells        拖动目标格
-│   ├── dragArrow         方向箭头
-│   ├── particles         Points（池化）
-│   └── shockwave         消除冲击环
+│   ├── dragArrow         方向箭头（M5）
+│   ├── particles         Points（M5）
+│   └── shockwave         消除冲击环（M5）
 └── lights
     ├── hemi
     ├── key (shadow)
@@ -104,34 +104,39 @@ Scene
 | 俯仰角 | 约 60°（从水平面算） |
 | 朝向 | 沿 +Z 看向原点，无侧倾 |
 | 近/远裁剪 | 0.1 / 200 |
-| 目标点 | 棋盘中心，略向近端偏移（+0.3 Z） |
+| 目标点 | `(0, 0.25, 0.35)`，略向近端偏移 |
 
 ### 4.2 自动适配
 
-用棋盘包围球估算距离：
+不按包围球估算，而是**投影棋盘 8 个角点并二分搜索相机距离**，这样对透视和俯仰更准确：
 
 ```ts
-const W = cols * CELL_W;
-const D = rows * CELL_D;
-const radius = 0.5 * Math.hypot(W, D) + TILE_H;
-const fovY = (camera.fov * Math.PI) / 180;
-const fovX = 2 * Math.atan(Math.tan(fovY / 2) * camera.aspect);
-const fitFov = Math.min(fovY, fovX);
-const dist = (radius / Math.sin(fitFov / 2)) * MARGIN;
+const corners = [x = ±W/2, z = ±D/2, y = 0 或 TILE_H]; // 8 个点
+let low = 4, high = 200;
+for (let i = 0; i < 28; i++) {
+  const dist = (low + high) / 2;
+  camera.position.set(0, dist * sin(60°), dist * cos(60°));
+  camera.lookAt(0, 0.25, 0.35);
+  camera.updateMatrixWorld(true);
+  const maxNdc = max(|corner.project(camera).x|, |corner.project(camera).y|);
+  if (maxNdc > 0.78) low = dist; else high = dist;
+}
 ```
 
-- `MARGIN = 1.12`（桌面）/ `1.20`（移动端，给 HUD 留白）。
+- **`FIT_NDC = 0.78`**：棋盘最长边占屏幕约 78%，给顶部 HUD 与底部操作坞留白。
+- 12×12 的 144 张牌、9×12、8×9 共用同一套适配；竖屏时按宽度受限，棋盘自动缩小。
+- 实测 1440×900 下 8×9 棋盘约 780×700 px，12×12 棋盘约 720×680 px。
 - 相机位置：
 
 ```ts
 const pitch = THREE.MathUtils.degToRad(60);
 camera.position.set(0, dist * Math.sin(pitch), dist * Math.cos(pitch));
-camera.lookAt(0, 0.4, 0.6);
+camera.lookAt(0, 0.25, 0.35);
 ```
 
-- 包围球是保守估计；首版用它可以避免边角出画。若画面偏小，再将 `MARGIN` 调到 1.05–1.08。
-- 窗口尺寸变化用 `ResizeObserver` 监听，重建尺寸并重新适配（`400ms` 缓动过渡）。
-- 竖屏时按 `fovX` 受限，距离会自动变远；不要旋转棋盘。
+- 窗口尺寸变化用 `ResizeObserver` 监听，立即重新适配（不做 400ms 缓动，避免旋转屏幕时棋盘短暂出画）。
+- 竖屏时按宽度受限，距离会自动变远；不要旋转棋盘。
+- 实测截图见 `docs/` 或 `.tmp` 下的验收截图；相机参数以 `GameRenderer.fitCamera()` 为准。
 
 ### 4.3 轻微视差
 
@@ -378,11 +383,11 @@ const FONT_SANS  = '"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif';
 - 绘制前用 `ctx.measureText` 校验宽度，超宽则缩小字号（`fitText`）。
 - 后续可选：内置一份子集化宋体/楷体 woff2，保证跨平台一致。
 
-### 7.10 调试画廊
+### 7.10 调试画廊（M5）
 
 - 路由 `?faces=1`：以 7×6 网格展示 42 张牌面（2D canvas 直接 `toDataURL` 或绘制到页面）。
 - 支持按牌种筛选、放大单张、显示尺寸/耗时。
-- M3 验收时逐张检查：无溢出、无遮挡、字正、颜色不脏。
+- 当前 M4 已用真实浏览器截图逐张检查；画廊在 M5 补齐。
 
 ---
 
@@ -419,7 +424,7 @@ const FONT_SANS  = '"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif';
 ### 9.2 选中（锚牌）
 
 - 抬升 `+0.18`，`160ms`，轻微放大 `1.02`。
-- 牌下金色光环：加法混合的径向渐变平面（1.5×1.8），透明度脉冲 `0.55–0.85`。
+- 选中：牌体抬升 `+0.18`；牌面上方 `0.012` 放一张金色圆角描边平面（1.3×1.58，Canvas 纹理），比牌体略大，形成清晰的“描金框”。
 - 所有可配对且可见的牌：牌角出现金色菱形标记，上下浮动 `±0.03`，周期 1.6s。
 - 若没有候选，只显示选中光环，不显示标记。
 
@@ -444,7 +449,7 @@ const FONT_SANS  = '"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif';
 | 300ms | 两牌 scale → 0，移除 |
 | 420ms | 冲击环淡出；HUD 数字滚动 |
 
-- 粒子：`Points`，加法混合，金色 `#ffd27a`，寿命 0.7s，初速度向上锥形，重力 -3。
+- 粒子：`Points`，加法混合，金色 `#ffd27a`，寿命 0.7s，初速度向上锥形，重力 -3（M5）。
 - 冲击环：平面圆环纹理，scale 0.4→2.2，opacity 0.9→0。
 - 若同时触发胜利，延后 600ms 再拉远相机。
 
@@ -615,7 +620,7 @@ const ndc = new THREE.Vector2(
 | --- | --- |
 | `?mode=easy\|medium\|full` | 直接开局 |
 | `?seed=12345` | 固定随机种子（也可在菜单输入） |
-| `?faces=1` | 42 张牌面画廊 |
+| `?faces=1` | 42 张牌面画廊（M5） |
 | `?debug=1` | 显示 FPS、draw call、三角形数、牌数、相机距离 |
 | `?quality=low` | 强制画质档 |
 

@@ -253,25 +253,22 @@ src/
 
 | 模块 | 职责 |
 | --- | --- |
-| `GameRenderer.ts` | 创建 WebGLRenderer/Scene/Camera、RAF 主循环、事件订阅、dispose |
-| `layout.ts` | 格子尺寸、棋盘坐标、相机适配、世界坐标 ↔ 格坐标 |
+| `GameRenderer.ts` | 创建 WebGLRenderer/Scene/Camera、RAF 主循环、Raycaster/指针手势、选中/搭档高亮、ghost、dispose |
+| `layout.ts` | 格子尺寸、棋盘坐标、世界坐标 ↔ 格坐标 |
 | `tileFactory.ts` | 牌体几何、材质、牌面 Mesh、共享资源缓存 |
-| `facePainter.ts` | 42 种牌面的 Canvas 绘制与纹理缓存（含调试画廊） |
-| `tween.ts` | 轻量补间/弹簧、缓动函数、动画队列 |
-| `input.ts` | Raycaster 命中、tap/drag 手势、方向锁定、指针捕获 |
-| `effects.ts` | 选中光环、配对粒子、拖影、无效抖动、胜利效果 |
+| `facePainter.ts` | 42 种牌面的 Canvas 绘制与纹理缓存（调试画廊 M5） |
+| `tween.ts` | 轻量补间、缓动函数、动画队列 |
 | `table.ts` | 毛毡桌面、木质围边、背景与雾 |
 
 ### 6.4 UI 组件
 
-- `MainMenu.vue`：标题、三张模式卡（含网格缩略图/记录）、种子输入、设置入口。
+- `MainMenu.vue`：标题、三张模式卡（含网格缩略图/记录）、种子输入。
 - `SeedInput.vue`：种子输入框、清空按钮、内联校验错误。
-- `GameView.vue`：承载 canvas 与 HUD，管理开局/重开/换一局/暂停。
-- `GameCanvas.vue`：挂载 Renderer，转发指针事件，卸载时 dispose。
-- `HudBar.vue`：剩余牌数/对数、用时、步数、种子 chip（点击复制）、撤销/提示按钮。
-- `GameDialog.vue`：胜利/死局（显示种子、复制链接、同种子再来/换一局）、重开确认、设置。
+- `GameView.vue`：承载 canvas 与 HUD，管理开局/重开/换一局/暂停/撤销/提示，驱动 Renderer。
+- `HudBar.vue`：剩余牌数/对数、用时、步数、种子 chip（点击复制）、撤销/提示/重开。
+- `GameDialog.vue`：胜利/死局（显示种子、复制链接、同种子再来/换一局）、暂停、重开确认。
 - `Toast.vue`：轻提示（“无法消除”“落点无法配对”“种子已复制”）。
-- 开发期 `FaceGallery`（`?faces=1`）：一次查看 42 张牌面，便于美术调优。
+- 开发期 `FaceGallery`（`?faces=1`，M5）：一次查看 42 张牌面。
 
 ### 6.5 状态管理
 
@@ -514,6 +511,9 @@ mahj/
 │   ├── tsconfig.json
 │   ├── tsconfig.node.json
 │   ├── vite.config.ts
+│   ├── vitest.config.ts
+│   ├── public/
+│   │   └── favicon.svg
 │   ├── src/
 │   │   ├── main.ts
 │   │   ├── App.vue
@@ -531,23 +531,22 @@ mahj/
 │   │   ├── render/
 │   │   │   ├── GameRenderer.ts
 │   │   │   ├── layout.ts
+│   │   │   ├── canvas.ts
 │   │   │   ├── tileFactory.ts
 │   │   │   ├── facePainter.ts
-│   │   │   ├── input.ts
-│   │   │   ├── effects.ts
 │   │   │   ├── table.ts
 │   │   │   └── tween.ts
 │   │   ├── components/
 │   │   │   ├── MainMenu.vue
 │   │   │   ├── SeedInput.vue
 │   │   │   ├── GameView.vue
-│   │   │   ├── GameCanvas.vue
 │   │   │   ├── HudBar.vue
 │   │   │   ├── GameDialog.vue
-│   │   │   ├── SettingsPanel.vue
 │   │   │   └── Toast.vue
 │   │   ├── stores/game.ts
-│   │   ├── utils/url.ts
+│   │   ├── utils/
+│   │   │   ├── format.ts
+│   │   │   └── url.ts
 │   │   ├── api/client.ts
 │   │   ├── styles/
 │   │   │   ├── tokens.css
@@ -555,15 +554,18 @@ mahj/
 │   │   │   └── ui.css
 │   │   └── env.d.ts
 │   └── tests/
+│       ├── helpers.ts
 │       ├── rules.test.ts
 │       ├── drag.test.ts
 │       ├── generate.test.ts
 │       ├── seed.test.ts
 │       ├── url.test.ts
 │       └── session.test.ts
+├── docs/screenshots/    # README 截图
 └── scripts/
-    ├── dev.ps1
-    ├── build.ps1
+    ├── dev.ps1          # M6
+    ├── build.ps1        # M6
+    ├── sandbox-preload.cjs
     └── check-webgl.html
 ```
 
@@ -579,13 +581,13 @@ mahj/
 | **M1 骨架** | FastAPI 配置/资源接口；Vue+Vite+TS 工程；Three.js 画布；桌面+一张牌 | 前后端可分别启动；`npm run build` 与 `py_compile` 通过；`/api/health`、`/api/config` 可用 |
 | **M2 核心引擎** | 生成（含种子解析/复现）、可见性、点选、拖动、落点、撤销、提示、死局 | Vitest 覆盖规则文档中的测试矩阵；同种子可复现；核心模块零 three/DOM 依赖 |
 | **M3 3D 表现** | 42 种牌面、相机适配、拾取、抬升/选中/消除/回弹动效 | 三模式均能完整游玩；144 张牌 60fps（中端独显/核显）；无纹理错位 |
-| **M4 完整玩法** | 主菜单、种子输入、HUD、弹窗（种子/分享链接）、设置、记录、响应式 | 三模式从开局到胜利/死局流程闭环；同种子两次开局布局一致；非法种子被拦截；分享链接可预填；手机竖屏可玩 |
-| **M5 打磨** | 音效、粒子、性能降级、无障碍、引导 | 低画质档位可运行；减少动效生效；首次进入有 3 步引导 |
+| **M4 完整玩法** | 主菜单、种子输入、HUD、弹窗（种子/分享链接）、记录、响应式（画质/音效设置移至 M5） | 三模式从开局到胜利/死局流程闭环；同种子两次开局布局一致；非法种子被拦截；分享链接可预填；手机竖屏可玩 |
+| **M5 打磨** | 音效、画质/音效设置、粒子、性能降级、无障碍、引导 | 低画质档位可运行；减少动效生效；首次进入有 3 步引导 |
 | **M6 交付** | README、脚本、构建、手动测试矩阵、截图 | 一条命令构建；`docs/` 与实现同步；回归清单全部通过 |
 
 建议按 M1 → M2 → M3 顺序做：先让规则在纯逻辑层跑通并用测试锁住，再接 3D，避免“画面先做、规则反复改”的返工。
 
-**当前进度（2026-10-29）**：M0–M2 完成。后端 `/api/health`、`/api/config`、`/api/assets` 可用；前端可构建并显示桌面与首张 3D 牌；核心引擎 46 个 Vitest 用例通过。下一步 M3：42 种牌面接入、拾取与拖拽动效。
+**当前进度（2026-10-29）**：M0–M4 完成。后端 `/api/health`、`/api/config`、`/api/assets` 可用；前端可构建并完整游玩三模式（菜单、种子、3D 牌面、点选/拖拽、撤销/提示、暂停/结算、本地记录、移动端布局）；核心逻辑 50 个 Vitest 用例通过，并用 Edge + Playwright 在真实 WebGL2 下完成点选、拖动、同种子复现与胜利流程验收。下一步 M5：音效、粒子、画质设置、无障碍与性能降级。
 
 ---
 

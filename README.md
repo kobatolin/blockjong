@@ -4,7 +4,7 @@
 >
 > 三种规模：简单 8×9、中等 9×12、完整 12×12。
 >
-> **当前状态：M2 完成。** 3D 骨架与纯逻辑引擎已就绪（46 个单测通过）；完整玩法 UI、拖拽交互与结算仍在 M3/M4。
+> **当前状态：M4 完成，M5 打磨中。** 三种模式均可完整游玩：菜单、种子输入、3D 对局、点选/拖拽、撤销/提示、暂停、结算、本地记录与移动端布局已接通；核心逻辑 50 个单测通过。音效、粒子与画质设置仍在 M5。
 
 ---
 
@@ -66,9 +66,7 @@
 | [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) | 本机环境检查与开发约束 |
 | [`AGENTS.md`](AGENTS.md) | 协作约定与架构不变量 |
 
-## 开发运行（M1 起可用）
-
-> 以下命令在 M1 骨架完成后生效；当前仓库尚无 `frontend/package.json` 与 `backend/app`。
+## 开发运行
 
 ```powershell
 # 前端依赖（必须使用项目内缓存；见环境文档）
@@ -76,12 +74,15 @@ cd frontend
 npm --cache ..\.npm-cache install
 npm run dev            # http://localhost:5173
 
-# 后端
+# 后端（DSH 沙箱中 python -m venv 的 ensurepip 会被拒，改用 uv）
 cd backend
-python -m venv .venv
-.\.venv\Scripts\python -m pip install --cache-dir ..\.pip-cache -r requirements.txt
+$env:UV_CACHE_DIR = '..\.uv-cache'
+uv venv .venv --python 3.13
+uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 .\.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 ```
+
+> 本会话/DSH 沙箱中请用 `npm run dev:sandbox`、`npm run build:sandbox`、`npm run test:sandbox`；普通环境直接用 `dev/build/test`。原因见 [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)。
 
 生产构建：
 
@@ -95,7 +96,17 @@ cd ..\backend
 
 WebGL 自检：双击 [`scripts/check-webgl.html`](scripts/check-webgl.html)，确认 WebGL2 与显卡信息正常。
 
-## 项目结构（规划）
+## 截图
+
+![主菜单](docs/screenshots/menu.png)
+
+![简单模式对局](docs/screenshots/game-easy.png)
+
+![完整模式 144 张](docs/screenshots/game-full.png)
+
+![暂停弹窗](docs/screenshots/pause.png)
+
+## 项目结构
 
 ```
 mahj/
@@ -121,9 +132,9 @@ mahj/
 - [x] **M0** 规则梳理、技术选型、架构设计、环境检查、文档落盘
 - [x] **M1** FastAPI + Vue/Vite + Three.js 骨架（桌面与首张 3D 牌）
 - [x] **M2** 纯 TS 核心引擎与单元测试（生成、种子、可见性、拖动、消除、撤销、死局）
-- [ ] **M3** 42 种牌面、相机、拾取与 3D 动效
-- [ ] **M4** 菜单、HUD、弹窗、记录、响应式
-- [ ] **M5** 音效、粒子、性能降级、无障碍
+- [x] **M3** 42 种牌面、相机、拾取与 3D 动效
+- [x] **M4** 菜单、HUD、弹窗、种子、记录、响应式
+- [ ] **M5** 音效、画质/音效设置、粒子、性能降级、无障碍
 - [ ] **M6** 构建脚本、回归验收、交付
 
 ## 环境要求
@@ -133,7 +144,7 @@ mahj/
 - Python ≥ 3.11（实测 3.13.5）
 - 支持 WebGL2 的浏览器（Edge / Chrome 最新版）
 
-当前会话的 npm/pip 缓存目录不可写，需使用项目内缓存（`.npm-cache`、`.pip-cache`）；浏览器自动化也被沙箱限制，WebGL 需手动验证。详见 [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)。
+当前会话的 npm/pip 缓存目录默认不可写，需使用项目内缓存（`.npm-cache`、`.pip-cache`）；普通沙箱限制浏览器进程，完整权限下可用 Edge + Playwright 自动验收（见 [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)）。
 
 ## 许可
 
