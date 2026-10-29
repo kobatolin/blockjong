@@ -455,21 +455,14 @@ const FONT_SANS  = '"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif';
 - 轻微相机震动（`±0.03`，120ms），可在低画质/减少动效时关闭。
 - Toast：“落点无法配对”。
 
-### 9.6 洗牌
-
-- 剩余牌抬升 `+0.4`，随机旋转 `±π`，`250ms`；
-- 交换到新位置，错峰落下（按 `(r+c)` 延迟 8ms）；
-- 总时长约 600ms；期间输入锁定。
-- 落定后做一次金色微光扫过棋盘（可选）。
-
-### 9.7 胜利
+### 9.6 胜利
 
 - 相机后拉 8%，`600ms`；
 - 金色粒子从上方缓缓落下（60–100 个）；
 - 桌面亮度略升；
 - 800ms 后弹出结算面板（HTML）。
 
-### 9.8 死局
+### 9.7 死局
 
 - canvas 加 CSS `filter: saturate(0.55) brightness(0.85)`，`300ms` 过渡；
 - 弹出死局面板；关闭后恢复。
@@ -497,14 +490,14 @@ interface Tween {
 ```
 
 - `update(dt)`：累加 `elapsed`，计算 `t`，写入目标属性；完成后回调并移除。
-- 支持 `killByTarget(target)`，用于重开/洗牌时取消旧动画。
+- 支持 `killByTarget(target)`，用于重开/卸载时取消旧动画。
 - 同一 target 的同一属性后加入的 tween 覆盖先前的（先 kill）。
 
 ### 10.2 缓动
 
 - `linear`
 - `cubicOut`：抬升/落位
-- `backOut`：回弹/洗牌落位
+- `backOut`：回弹/落位
 - `expoOut`：相机/面板
 - `elasticOut`：仅胜利等特殊时刻，慎用
 
@@ -518,7 +511,6 @@ interface Tween {
 | 落点吸附 | 120ms | cubicOut |
 | 失败回弹 | 280ms | expoOut |
 | 消除 | 420ms | cubicOut |
-| 洗牌 | 600ms | backOut |
 | 相机适配 | 400ms | expoOut |
 | 结算 | 800ms | expoOut |
 
@@ -633,7 +625,7 @@ const ndc = new THREE.Vector2(
 - [ ] 12×12 棋盘完整入画；横竖屏、16:9/16:10/21:9 均不被 HUD 遮挡。
 - [ ] 牌与牌之间无 z-fighting；牌面无摩尔纹。
 - [ ] 阴影无 acne、无 peter-panning；牌底有接触感。
-- [ ] 选中/悬停/拖动/消除/回弹/洗牌动效时长正确，无卡顿。
+- [ ] 选中/悬停/拖动/消除/回弹动效时长正确，无卡顿。
 - [ ] 144 张牌场景 draw call、帧时间在预算内。
 - [ ] 切换页面/重开无 WebGL context 泄漏（`renderer.info` 归零）。
 - [ ] 低画质档可运行；`prefers-reduced-motion` 下动效收敛。
@@ -660,7 +652,7 @@ const ndc = new THREE.Vector2(
 2. 42 张牌面 2D 画廊（先不管 3D），逐张调美观。
 3. 铺满 12×12 牌，验证 draw call、阴影、拾取。
 4. 选中/悬停/拖动/消除/回弹动效。
-5. 洗牌/胜利/死局/低画质。
+5. 胜利/死局/低画质。
 6. 性能优化（如需）。
 
 先做“一张牌好看”，再做“一盘牌不卡”。
