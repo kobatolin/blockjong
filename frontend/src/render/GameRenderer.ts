@@ -171,7 +171,7 @@ export class GameRenderer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 1.02
+    this.renderer.toneMappingExposure = 0.86
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
     this.renderer.domElement.className = 'board-canvas'
@@ -197,9 +197,9 @@ export class GameRenderer {
     room.dispose()
     pmrem.dispose()
 
-    this.scene.add(new THREE.HemisphereLight(0xfff3dd, 0x0a241e, 0.55))
+    this.scene.add(new THREE.HemisphereLight(0xfff3dd, 0x0a241e, 0.34))
 
-    this.keyLight = new THREE.DirectionalLight(0xffe9c9, 2.1)
+    this.keyLight = new THREE.DirectionalLight(0xffe9c9, 1.55)
     this.keyLight.position.set(-8, 16, 10)
     this.keyLight.castShadow = true
     this.keyLight.shadow.mapSize.set(2048, 2048)
@@ -210,7 +210,7 @@ export class GameRenderer {
     this.scene.add(this.keyLight)
     this.scene.add(this.keyLight.target)
 
-    const fill = new THREE.DirectionalLight(0x8fc7ff, 0.35)
+    const fill = new THREE.DirectionalLight(0x8fc7ff, 0.24)
     fill.position.set(9, 8, -8)
     this.scene.add(fill)
 

@@ -10,14 +10,14 @@ import { createCanvas, roundRectPath } from './canvas'
 const FACE_W = 256
 const FACE_H = 320
 const FONT = '"KaiTi","STKaiti","Kaiti SC","Noto Serif SC","SimSun",serif'
-const PAPER = '#fbf4e4'
-const PAPER_EDGE = '#e7d7b9'
+const PAPER = '#eedec4'
+const PAPER_EDGE = '#d9c4a2'
 
-const BLUE = '#1f5fa8'
-const GREEN = '#1f7a4d'
-const RED = '#a8322a'
-const INK = '#20303a'
-const GOLD = '#a98243'
+const BLUE = '#1b4f8f'
+const GREEN = '#196544'
+const RED = '#94261f'
+const INK = '#1b2932'
+const GOLD = '#8f6a34'
 const SUIT_COLORS = [BLUE, GREEN, RED]
 
 type Point = [number, number]
@@ -347,9 +347,9 @@ const FLOWER_FACE: Record<string, { glyph: string; color: string; season: boolea
   'flower-autumn': { glyph: '秋', color: '#2b7a5a', season: true },
   'flower-winter': { glyph: '冬', color: '#2b7a5a', season: true },
   'flower-plum': { glyph: '梅', color: '#b23a48', season: false },
-  'flower-orchid': { glyph: '蘭', color: '#b23a48', season: false },
-  'flower-bamboo': { glyph: '竹', color: '#b23a48', season: false },
-  'flower-chrysanthemum': { glyph: '菊', color: '#b23a48', season: false },
+  'flower-orchid': { glyph: '蘭', color: '#9e2937', season: false },
+  'flower-bamboo': { glyph: '竹', color: '#9e2937', season: false },
+  'flower-chrysanthemum': { glyph: '菊', color: '#9e2937', season: false },
 }
 
 function paintFlower(ctx: CanvasRenderingContext2D, kindId: string): void {

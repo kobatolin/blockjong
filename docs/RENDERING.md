@@ -165,7 +165,7 @@ renderer = new THREE.WebGLRenderer({
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.02;
+renderer.toneMappingExposure = 0.86;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 ```
@@ -174,10 +174,10 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 | 灯 | 参数 | 作用 |
 | --- | --- | --- |
-| HemisphereLight | 天 `#fff3dd` / 地 `#0a241e`，强度 0.55 | 基础环境光，避免死黑 |
-| DirectionalLight（主） | `#ffe9c9`，强度 2.1，位置 `(-8, 16, 10)` | 暖色主光，投射阴影 |
-| DirectionalLight（补） | `#8fc7ff`，强度 0.35，位置 `(9, 8, -8)` | 冷色补光，拉开层次 |
-| Environment（PMREM） | RoomEnvironment，强度 0.35 | 牌体高光与边缘反射 |
+| HemisphereLight | 天 `#fff3dd` / 地 `#0a241e`，强度 0.34 | 基础环境光，避免死黑 |
+| DirectionalLight（主） | `#ffe9c9`，强度 1.55，位置 `(-8, 16, 10)` | 暖色主光，投射阴影 |
+| DirectionalLight（补） | `#8fc7ff`，强度 0.24，位置 `(9, 8, -8)` | 冷色补光，拉开层次 |
+| Environment（PMREM） | RoomEnvironment；牌体 envMapIntensity 0.34 | 牌体边缘反射 |
 
 主光阴影：
 
@@ -201,7 +201,8 @@ key.shadow.normalBias = 0.02;
 ### 5.3 色调
 
 - 整体偏暖，但毛毡保持冷绿，形成冷暖对比。
-- 牌面象牙白不要纯白（`#f1e6cf`），否则高光过曝。
+- 牌体暖象牙 `#d2c1a5`，牌面纸色 `#eedec4`；**不要纯白**，否则在 ACES + 主光下会冲掉墨色。
+- 牌面墨色整体加深（蓝 `#1b4f8f`、绿 `#196544`、红 `#94261f`、墨 `#1b2932`），保证缩小后仍可辨。
 - 金色只用于选中/提示/粒子，不铺大面积。
 
 ---
@@ -213,37 +214,34 @@ key.shadow.normalBias = 0.02;
 ```ts
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-const bodyGeo = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 4, CORNER_R);
+const bodyGeo = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 3, CORNER_R);
 ```
 
 - 所有牌共享同一份 `bodyGeo` 与 `faceGeo`。
-- 圆角分段 4 足够；再高只会增加顶点数。
+- 圆角分段 3 足够；再高只会增加顶点数。
 - 牌体不需要背面细节（不可见）。
 
 ### 6.2 材质
 
 ```ts
 const bodyMat = new THREE.MeshPhysicalMaterial({
-  color: 0xf1e6cf,
-  roughness: 0.38,
+  color: 0xd2c1a5,
+  roughness: 0.56,
   metalness: 0.0,
-  clearcoat: 0.35,
-  clearcoatRoughness: 0.35,
-  envMapIntensity: 0.6,
+  clearcoat: 0.12,
+  clearcoatRoughness: 0.6,
+  envMapIntensity: 0.34,
 });
 ```
 
-- 清漆层模拟象牙/树脂的温润反光；不要做成塑料高光。
-- 牌面材质：
+- 清漆层只保留很轻的一层，避免把牌体打成白色塑料高光。
+- 牌面是**不受光照的印刷面**，用 `MeshBasicMaterial` 直接显示已烘焙的纸色与墨色：
 
 ```ts
-const faceMat = new THREE.MeshStandardMaterial({
-  map: texture,
-  roughness: 0.55,
-  metalness: 0.0,
-  envMapIntensity: 0.4,
-});
+const faceMat = new THREE.MeshBasicMaterial({ map: texture });
 ```
+
+这样主光只会塑造牌体边缘和阴影，不会再把牌面纸色二次提亮；牌面也不再接收阴影。纸色/墨色的对比由 `facePainter` 直接控制。
 
 ### 6.3 牌面贴合
 
