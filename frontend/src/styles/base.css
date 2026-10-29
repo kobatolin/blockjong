@@ -1,0 +1,42 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background: var(--ink);
+}
+
+body {
+  overflow: hidden;
+  color: var(--ivory);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+canvas {
+  display: block;
+}
+
+::selection {
+  background: rgba(217, 179, 108, 0.3);
+  color: var(--ivory);
+}

@@ -8,34 +8,38 @@
 
 核心玩法：点选两张可配对且无阻挡的牌消除；或按住牌沿行/列拖动，带动连续牌串，落点成对则消除，否则整串回弹。
 
-- **当前状态：M0（规划）**。仓库内只有文档与 `scripts/check-webgl.html`；`frontend/` 与 `backend/app/` 尚未创建。
+- **当前状态：M2 完成，M3 进行中**。已实现 FastAPI 骨架、Vue/Vite/TS 工程、Three.js 桌面与首张 3D 牌，以及 `frontend/src/core` 纯逻辑引擎（46 个 Vitest 用例通过）。完整玩法 UI 与拖拽交互尚未接入。
 - 开始实现前，按顺序阅读：
   1. `docs/GAME_RULES.md` —— 规则唯一权威来源；
   2. `docs/PROJECT_PLAN.md` —— 架构、模块、路线；
   3. `docs/RENDERING.md` —— 3D 与牌面方案；
   4. `docs/ENVIRONMENT.md` —— 本机约束。
 
-## 命令（M1 骨架完成后生效）
+## 命令
 
 ```powershell
-# 前端
+# 前端（普通环境）
 cd frontend
-npm --cache ..\.npm-cache install
+npm install
 npm run dev            # 5173，/api 代理到 8000
 npm run test           # Vitest
 npm run build          # vite build -> frontend/dist
 
-# 后端
+# 前端（DSH 沙箱：Vite 的 net use 探测与 forks 池需要绕过）
+npm run dev:sandbox
+npm run build:sandbox
+npm run test:sandbox
+
+# 后端（DSH 中 python -m venv 的 ensurepip 会被拒，改用 uv）
 cd backend
-python -m venv .venv
-.\.venv\Scripts\python -m pip install --cache-dir ..\.pip-cache -r requirements.txt
+$env:UV_CACHE_DIR = '..\.uv-cache'
+uv venv .venv --python 3.13
+uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 .\.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 
 # 语法检查
-.\.venv\Scripts\python -m py_compile app/main.py app/config.py app/routers/*.py
+.\.venv\Scripts\python -m py_compile app/main.py app/config.py app/schemas.py app/routers/*.py
 ```
-
-> 以上 `frontend/package.json`、`backend/app`、`requirements.txt` 在 M1 创建；当前不存在，不要假装命令已可运行。
 
 ## 架构不变量（必须遵守）
 
@@ -73,6 +77,7 @@ python -m venv .venv
 - **拾取坐标**：NDC 用 `canvas.getBoundingClientRect()`，不是 `window.innerWidth`。
 - **相机适配**：棋盘为竖长格（`CELL_D = 1.25`），别按正方形算范围。
 - **种子**：0 是合法 seed，“未输入”用 `null`；URL 的 `?seed=` 必须走同一套校验；随机 seed 用 `crypto.getRandomValues`，不要用 `Math.random` 生成开局布局。
+- **DSH 沙箱**：Vite 8 会执行 `net use` 探测网络盘，`scripts/sandbox-preload.cjs` 只拦截这一条命令；Vitest 必须用 `--pool=threads`（forks 会 spawn 子进程被拒）。这只影响本会话，普通环境用 `npm run dev/build/test` 即可。
 
 ## 代码约定
 

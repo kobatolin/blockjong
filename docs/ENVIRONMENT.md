@@ -212,20 +212,94 @@ git config --global user.email
 
 ---
 
-## 9. M1 启动清单
+## 9. M1/M2 实测状态（2026-10-29）
 
-- [ ] `cd frontend && npm --cache ..\.npm-cache install`
-- [ ] 确认 `node_modules/.bin/vite` 存在，`npm run dev` 可启动
-- [ ] `cd backend && python -m venv .venv`
-- [ ] `.\.venv\Scripts\python -m pip install --cache-dir ..\.pip-cache -r requirements.txt`
-- [ ] `python -m uvicorn app.main:app --port 8000` 可启动
-- [ ] 浏览器打开 `scripts/check-webgl.html`，确认 WebGL2
-- [ ] 两个终端分别启动前后端，访问 `http://localhost:5173`，`/api/health` 返回 ok
+- [x] 前端依赖安装成功（Vite 8.3.5、Three 0.186.1、Vue 3.5.44、Vitest 5.0.5、`@types/three` 0.186.0）。
+- [x] `npm run test:sandbox`：5 个测试文件、46 个用例全部通过。
+- [x] `npm run typecheck`：通过。
+- [x] `npm run build:sandbox`：产出 `frontend/dist`（JS 约 622KB / gzip 165KB，Three.js 体积警告可接受）。
+- [x] 后端 `uv venv` + `uv pip install`：FastAPI 0.162.0、Uvicorn 0.54.0、Pydantic 2.14.1。
+- [x] `py_compile` 通过。
+- [x] `/api/health`、`/api/config`、`/`（SPA）、`/api/assets` 路径穿越 404 均验证通过。
+- [ ] 真实浏览器 WebGL2 与画面人工验收（会话沙箱无法启动浏览器）。
+- [ ] 完整玩法（M3/M4）。
 
 ---
 
 ## 10. 结论
 
 - 本机具备完整的 Node + Python + Git 开发条件，磁盘充足。
-- 唯一需要预处理的坑是 **npm/pip/uv 缓存目录**与**浏览器自动化限制**，均已给出规避方案。
-- 环境层面没有阻塞项；可以按 `PROJECT_PLAN.md` 的 M1 开始搭骨架。
+- 唯一需要预处理的坑是 **npm/pip/uv 缓存目录**、**Vite 的 Windows 网络盘探测**、**Vitest forks 子进程**与**浏览器自动化限制**，均已给出规避方案。
+- 环境层面没有阻塞项；M0–M2 已完成，M3 进入 3D 表现与交互接入。
+
+---
+
+## 11. M1/M2 环境适配记录
+
+### 11.1 Vite 8 的 `net use` 探测
+
+Vite 8 在 Windows 上会执行 `exec("net use")` 探测映射网络盘。当前 DSH 沙箱禁止子进程管道，导致：
+
+```
+Error: spawn EPERM
+  at optimizeSafeRealPathSync (.../vite/dist/node/chunks/node.js)
+```
+
+应对：`scripts/sandbox-preload.cjs` 只拦截这一条命令（其他 `exec` 原样放行），让 Vite 回退到 `fs.realpathSync`。仅影响本会话；普通环境无需该脚本。
+
+```powershell
+cd frontend
+npm run dev:sandbox
+npm run build:sandbox
+```
+
+### 11.2 Vitest 必须用线程池
+
+Vitest 默认 forks 池会 `spawn` 子进程，在沙箱中被拒：
+
+```
+Failed to start forks worker ... spawn EPERM
+```
+
+`vitest.config.ts` 已设 `pool: 'threads'`；沙箱命令再加 preload：
+
+```powershell
+npm run test:sandbox
+# 等价于：
+# node -r ../scripts/sandbox-preload.cjs node_modules/vitest/vitest.mjs run --pool=threads
+```
+
+### 11.3 Three.js 类型声明
+
+`three@0.186.1` 不自带 `.d.ts`，需要 devDependency：
+
+```powershell
+npm install -D @types/three@^0.186.0 --ignore-scripts
+```
+
+`RoundedBoxGeometry` 的类型不在 `THREE` 命名空间，使用导入的类名作为类型。
+
+### 11.4 Python venv
+
+本机 `python -m venv` 的 `ensurepip` 失败，改用 uv：
+
+```powershell
+cd backend
+$env:UV_CACHE_DIR = 'D:\workspace\mahj\.uv-cache'
+uv venv .venv --python 3.13
+uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
+```
+
+`python -m venv` 在普通环境仍可用；以上是 DSH 下的实测路径。
+
+### 11.5 编码
+
+`/api/config` 返回的 JSON 为 UTF-8（已检查原始字节）；PowerShell 5.1 控制台按本地代码页显示时中文会乱码，不是服务端问题。浏览器/前端按 UTF-8 解析。
+
+### 11.6 浏览器验收
+
+会话沙箱仍无法启动 Edge，因此：
+
+- 构建、类型、单测、后端接口均可自动验证；
+- 3D 画面、纹理朝向、相机适配、拖拽手感需要用户在真实浏览器中验收；
+- 可打开 `scripts/check-webgl.html` 先确认 WebGL2；再用 `npm run dev:sandbox` 或 FastAPI 托管 `frontend/dist` 查看游戏。

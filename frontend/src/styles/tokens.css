@@ -1,0 +1,20 @@
+:root {
+  --ink: #07120f;
+  --ink-soft: #0b1a16;
+  --jade: #0f3b31;
+  --jade-deep: #082a23;
+  --ivory: #f3e8d0;
+  --ivory-dim: #d8cbb1;
+  --gold: #d9b36c;
+  --gold-soft: #b08a48;
+  --vermilion: #b23a2b;
+  --muted: #8fa89f;
+  --line: rgba(217, 179, 108, 0.26);
+  --glass: rgba(11, 30, 25, 0.72);
+  --font-serif: "KaiTi", "STKaiti", "Kaiti SC", "Noto Serif SC", "SimSun", serif;
+  --font-sans: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --shadow-panel: 0 22px 70px rgba(0, 0, 0, 0.5);
+}

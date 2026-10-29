@@ -16,6 +16,7 @@ frontend/.vite/
 .pip-cache/
 .uv-cache/
 .tmp/
+*.tsbuildinfo
 
 # ---- Runtime config & logs ----
 config.json

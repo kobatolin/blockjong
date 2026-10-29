@@ -1,0 +1,33 @@
+/** Deterministic PRNG helpers. All game randomness goes through a seed. */
+
+export type Rng = () => number
+
+/**
+ * Mulberry32: small, fast, good enough for shuffling a 144-tile bag.
+ * The same 32-bit seed always produces the same sequence.
+ */
+export function mulberry32(seed: number): Rng {
+  let state = seed >>> 0
+  return () => {
+    state = (state + 0x6d2b79f5) | 0
+    let t = Math.imul(state ^ (state >>> 15), 1 | state)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+export function randomIndex(rng: Rng, length: number): number {
+  if (length <= 0) return 0
+  return Math.min(length - 1, Math.floor(rng() * length))
+}
+
+/** In-place Fisher-Yates; returns the same array for convenient chaining. */
+export function shuffleInPlace<T>(items: T[], rng: Rng): T[] {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = randomIndex(rng, i + 1)
+    const tmp = items[i]
+    items[i] = items[j]
+    items[j] = tmp
+  }
+  return items
+}
