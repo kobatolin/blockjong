@@ -133,7 +133,7 @@ function colorRecipe(id) {
     if (n === 5) rules.push(
       { color: 'ink', select: circle(.6819, .2004, .2) },
       { color: 'ink', select: circle(.3014, .7358, .2) },
-      { color: 'ink', select: circle(.4913, .4681, .15) },
+      { color: 'red', select: circle(.4913, .4681, .15) },
     );
     if (n === 6) rules.push({ color: 'red', select: band('y', .4, 1) });
     // Split the joined outline along the tangent between the last green and first red pip.
