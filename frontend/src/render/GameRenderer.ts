@@ -1115,8 +1115,8 @@ export class GameRenderer {
         CAMERA_YAW_LIMIT,
       )
       this.cameraRadius = clamp(
-        this.cameraRadius + dy * 0.02,
-        this.fitRadius * 0.45,
+        this.cameraRadius - dy * 0.02,
+        Math.max(0.15, this.fitRadius * 0.02),
         this.fitRadius * 1.8,
       )
     } else {
