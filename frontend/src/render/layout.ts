@@ -4,7 +4,7 @@ export const CELL_W = 1.0
 export const CELL_D = 1.25
 export const TILE_W = 0.984
 export const TILE_D = 1.234
-export const TILE_H = 0.34
+export const TILE_H = 0.54
 export const CORNER_R = 0.095
 
 export interface BoardDimensions {

@@ -35,7 +35,7 @@
 | `CELL_D` | 1.25 | 格深（Z）；麻将牌面为竖长比例 |
 | `TILE_W` | 0.984 | 牌宽 |
 | `TILE_D` | 1.234 | 牌长 |
-| `TILE_H` | 0.34 | 牌厚 |
+| `TILE_H` | 0.54 | 牌厚 |
 | `CORNER_R` | 0.095 | 圆角半径 |
 | 间隙 | 0.016 / 0.016 | 牌与格边的左右/前后留白；靠圆角读缝，几乎贴合 |
 
@@ -74,6 +74,7 @@ Scene
 ├── tileLayer
 │   ├── TileView[0]       Group
 │   │   ├── body          RoundedBoxGeometry + 象牙白材质
+│   │   ├── back          RoundedBoxGeometry 蓝色背盖（底部约 20% 高度）
 │   │   └── face          PlaneGeometry + 牌面纹理
 │   └── ...
 ├── fxLayer
@@ -206,7 +207,7 @@ key.shadow.normalBias = 0.02;
 ### 5.3 色调
 
 - 整体偏暖，但毛毡保持冷绿，形成冷暖对比。
-- 牌体 `#dee7da`，牌面亚克力底 `#eeece8`；墨层 `#0d1110`、红 `#df2029`、绿 `#114f37`，避免在灯光下冲淡。
+- 牌体 `#dee7da`，背面蓝盖 `#18a8df`（底部约 20% 高度，侧看形成蓝色背缘）；牌面亚克力底 `#eeece8`；墨层 `#0d1110`、红 `#df2029`、绿 `#114f37`，避免在灯光下冲淡。
 - 牌面墨色整体加深（蓝 `#1b4f8f`、绿 `#196544`、红 `#94261f`、墨 `#1b2932`），保证缩小后仍可辨。
 - 高辨识度构图：字牌用 154px 大字；万子数字与“萬”都用红色；筒一为花瓣轮盘，筒二至九用大号同心点；索二至九用带竹节/红色中段的竹签；花牌同时画数字、字与植物图标。
 - 金色只用于选中/提示/粒子，不铺大面积。
@@ -221,6 +222,7 @@ key.shadow.normalBias = 0.02;
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const bodyGeo = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 4, CORNER_R);
+const backGeo = new RoundedBoxGeometry(TILE_W * 1.003, TILE_H * 0.2, TILE_D * 1.003, 4, 0.035);
 ```
 
 - 所有牌共享同一份 `bodyGeo` 与 `faceGeo`。
