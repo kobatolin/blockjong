@@ -164,7 +164,7 @@ renderer = new THREE.WebGLRenderer({
 });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMapping = THREE.NeutralToneMapping;
 renderer.toneMappingExposure = 0.86;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -176,7 +176,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 | --- | --- | --- |
 | HemisphereLight | 天 `#fff3dd` / 地 `#0a241e`，强度 0.34 | 基础环境光，避免死黑 |
 | DirectionalLight（主） | `#ffe9c9`，强度 1.55，位置 `(-8, 16, 10)` | 暖色主光，投射阴影 |
-| DirectionalLight（补） | `#8fc7ff`，强度 0.24，位置 `(9, 8, -8)` | 冷色补光，拉开层次 |
+| DirectionalLight（补） | 色温联动冷色，强度 0.24，位置 `(9, 8, -8)` | 冷色补光，拉开层次 |
 | Environment（PMREM） | RoomEnvironment；牌体 envMapIntensity 0.34 | 牌体边缘反射 |
 
 主光阴影：
@@ -201,7 +201,7 @@ key.shadow.normalBias = 0.02;
 ### 5.3 色调
 
 - 整体偏暖，但毛毡保持冷绿，形成冷暖对比。
-- 牌体暖象牙 `#d2c1a5`，牌面纸色 `#f1e1c6`；**不要纯白**，否则在 ACES + 主光下会冲掉墨色。
+- 牌体暖象牙 `#d2c1a5`，牌面亚克力底 `#fcfaf3`；墨层用近黑/深红/深绿，避免在灯光下冲淡。
 - 牌面墨色整体加深（蓝 `#1b4f8f`、绿 `#196544`、红 `#94261f`、墨 `#1b2932`），保证缩小后仍可辨。
 - 高辨识度构图：字牌用 154px 大字；万子数字与“萬”都用红色；筒一为花瓣轮盘，筒二至九用大号同心点；索二至九用带竹节/红色中段的竹签；花牌同时画数字、字与植物图标。
 - 金色只用于选中/提示/粒子，不铺大面积。
@@ -242,12 +242,12 @@ const bodyMat = new THREE.MeshPhysicalMaterial({
 const faceMat = new THREE.MeshPhysicalMaterial({
   map: texture,
   bumpMap: texture,       // ink is dark => recessed; acrylic is bright => raised
-  bumpScale: 0.032,
-  roughness: 0.58,
+  bumpScale: 0.045,
+  roughness: 0.82,
   metalness: 0,
-  clearcoat: 0.2,
-  clearcoatRoughness: 0.12,
-  envMapIntensity: 0.1,
+  clearcoat: 0.04,
+  clearcoatRoughness: 0.35,
+  envMapIntensity: 0.05,
 });
 ```
 

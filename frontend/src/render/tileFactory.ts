@@ -41,8 +41,8 @@ export class TileFactory {
   private readonly bodyMaterial: THREE.MeshPhysicalMaterial
   private readonly faceMaterials = new Map<string, THREE.MeshPhysicalMaterial>()
   private readonly painter: FacePainter
-  private faceRoughness = 0.58
-  private faceReflectivity = 0.1
+  private faceRoughness = 0.82
+  private faceReflectivity = 0.05
 
   constructor(renderer: THREE.WebGLRenderer) {
     this.bodyGeometry = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 3, CORNER_R)
@@ -110,12 +110,12 @@ export class TileFactory {
     // rougher. A single face material cannot split those two without a
     // roughness map, so keep the sheet glossy and let the bump map + clearcoat
     // carry the engraved-paint read.
-    this.faceRoughness = Math.max(0.28, roughness * 0.82)
-    this.faceReflectivity = reflectivity * 0.55
+    this.faceRoughness = Math.max(0.7, 0.7 + roughness * 0.25)
+    this.faceReflectivity = reflectivity * 0.12
     for (const material of this.faceMaterials.values()) {
       material.roughness = this.faceRoughness
-      material.clearcoat = 0.18 + reflectivity * 0.52
-      material.clearcoatRoughness = 0.06 + roughness * 0.35
+      material.clearcoat = 0.03 + reflectivity * 0.06
+      material.clearcoatRoughness = 0.25 + roughness * 0.4
       material.envMapIntensity = this.faceReflectivity
       material.needsUpdate = true
     }
@@ -156,11 +156,11 @@ export class TileFactory {
       // usable height field: ink becomes a shallow recess and the acrylic
       // body becomes the raised surface.
       bumpMap: map,
-      bumpScale: 0.032,
+      bumpScale: 0.045,
       roughness: this.faceRoughness,
       metalness: 0,
-      clearcoat: 0.2,
-      clearcoatRoughness: 0.12,
+      clearcoat: 0.04,
+      clearcoatRoughness: 0.35,
       envMapIntensity: this.faceReflectivity,
     })
     this.faceMaterials.set(kindId, material)

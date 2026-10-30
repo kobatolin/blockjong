@@ -12,8 +12,7 @@ const FACE_H = 320
 const DESIGN_W = 120
 const DESIGN_H = 160
 
-const PAPER_HI = '#fbf9f1'
-const PAPER_LOW = '#f0eadb'
+const PAPER_HI = '#fcfaf3'
 
 const V2_IDS: Record<string, string> = {
   'honor-east': 'wind-east',
@@ -61,16 +60,11 @@ const V2_IDS: Record<string, string> = {
 }
 
 function paintPaper(ctx: CanvasRenderingContext2D): void {
-  // Cast-acrylic ivory: clean and even, no paper grain. The engraving map
-  // supplies the small-scale surface detail instead.
-  const gradient = ctx.createLinearGradient(8, 0, FACE_W - 8, FACE_H)
-  gradient.addColorStop(0, PAPER_HI)
-  gradient.addColorStop(1, PAPER_LOW)
-  ctx.fillStyle = gradient
+  // Clean cast-acrylic ivory: a flat, bright base instead of paper grain.
+  ctx.fillStyle = PAPER_HI
   ctx.fillRect(0, 0, FACE_W, FACE_H)
-
-  const glow = ctx.createRadialGradient(54, 36, 0, 54, 36, 210)
-  glow.addColorStop(0, 'rgba(255,255,255,.28)')
+  const glow = ctx.createRadialGradient(54, 30, 0, 54, 30, 250)
+  glow.addColorStop(0, 'rgba(255,255,255,.16)')
   glow.addColorStop(1, 'rgba(255,255,255,0)')
   ctx.fillStyle = glow
   ctx.fillRect(0, 0, FACE_W, FACE_H)

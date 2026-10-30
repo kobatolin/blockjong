@@ -113,10 +113,27 @@ function drawSegmentedFace(ctx, id) {
       ctx.drawImage(layer.canvas, 0, 0, DESIGN_W, DESIGN_H);
       return;
     }
-    ctx.fillStyle = LAYER_COLORS[layer.color];
+    const color = LAYER_COLORS[layer.color];
+    const paint = (path, fillRule) => {
+      ctx.save();
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      // A dark groove edge behind the fill, then a slightly dilated colored
+      // fill. This survives the downscale to a 40–50px tile much better than
+      // the raw hairline contours.
+      ctx.strokeStyle = 'rgba(5, 8, 7, .72)';
+      ctx.lineWidth = 2.6;
+      ctx.stroke(path);
+      ctx.fillStyle = color;
+      ctx.fill(path, fillRule);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.15;
+      ctx.stroke(path);
+      ctx.restore();
+    };
     layer.paths.forEach(({ path, clip, fillRule = 'nonzero' }) => {
       if (!clip) {
-        ctx.fill(path, fillRule);
+        paint(path, fillRule);
         return;
       }
       ctx.save();
@@ -129,7 +146,7 @@ function drawSegmentedFace(ctx, id) {
         ctx.rect(clip.min * DESIGN_W, 0, (clip.max - clip.min) * DESIGN_W, DESIGN_H);
       }
       if (!clip.path) ctx.clip();
-      ctx.fill(path, fillRule);
+      paint(path, fillRule);
       ctx.restore();
     });
   });
