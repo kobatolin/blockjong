@@ -85,10 +85,10 @@ export function paintFaceCanvas(kindId: string): HTMLCanvasElement {
   ctx.scale(2, 2)
   // A shallow recess edge around the paint reads at game size and separates
   // dark ink from the bright acrylic even when the tile is only a few pixels.
-  ctx.shadowColor = 'rgba(8, 13, 11, .62)'
-  ctx.shadowBlur = 1.25
-  ctx.shadowOffsetX = 0.35
-  ctx.shadowOffsetY = 0.35
+  ctx.shadowColor = 'rgba(8, 13, 11, .5)'
+  ctx.shadowBlur = 0.85
+  ctx.shadowOffsetX = 0.25
+  ctx.shadowOffsetY = 0.25
   if (kind.id === 'honor-white') {
     // I.Mahjong-HK expresses the white dragon through the tile frame, which
     // lives on the 2D body. Our 3D body has no printed frame, so draw it here.

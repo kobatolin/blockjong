@@ -118,17 +118,14 @@ function drawSegmentedFace(ctx, id) {
       ctx.save();
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
-      // A dark groove edge behind the fill, then a slightly dilated colored
-      // fill. This survives the downscale to a 40–50px tile much better than
-      // the raw hairline contours.
-      ctx.strokeStyle = 'rgba(5, 8, 7, .72)';
-      ctx.lineWidth = 2.6;
+      // A narrow groove edge only. The colored fill keeps its original
+      // contour weight; the earlier heavy double-stroke made the art look
+      // chunky at board scale.
+      ctx.strokeStyle = 'rgba(5, 8, 7, .58)';
+      ctx.lineWidth = 0.9;
       ctx.stroke(path);
       ctx.fillStyle = color;
       ctx.fill(path, fillRule);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.15;
-      ctx.stroke(path);
       ctx.restore();
     };
     layer.paths.forEach(({ path, clip, fillRule = 'nonzero' }) => {
