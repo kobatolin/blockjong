@@ -694,7 +694,7 @@ mahj/
 - npm registry 可访问；但用户级缓存目录被当前会话沙箱拒绝，需用项目内 `.npm-cache`。
 - Python 侧 fastapi/uvicorn/pydantic 尚未安装；`uv` 的用户级缓存同样受限，需 `UV_CACHE_DIR` 指向项目内。
 - Edge 已安装；会话沙箱无法启动浏览器进程，WebGL 需在真实浏览器中用 `scripts/check-webgl.html` 验证。
-- 工作区首次写权限异常已通过一次授权修复，备份位于 `D:\workspace\mahj-acl-recovery`。
+- 工作区首次写权限异常已通过一次授权修复，备份位于工作区同级的 `mahj-acl-recovery` 目录（仓库之外）。
 
 ---
 

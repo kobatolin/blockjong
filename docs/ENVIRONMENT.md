@@ -11,7 +11,6 @@
 | 项 | 值 |
 | --- | --- |
 | 操作系统 | Windows 11（NT 10.0.26200.0），64 位 |
-| 主机名 | `host` |
 | CPU | AMD64 Family 26 Model 68（AMD，Zen 5 级别） |
 | Shell | Windows PowerShell 5.1.26100.9711 |
 | 工作区 | `D:\workspace\mahj` |
@@ -31,15 +30,10 @@
 | npm | 11.9.0 | ✅ |
 | pnpm | 未安装 | ⚠️ 本项目统一用 npm，不引入 pnpm |
 | Python | 3.13.5（Microsoft Store 包） | ✅ |
-| uv | 0.11.1，`C:\Users\user\.local\bin\uv.exe` | ⚠️ 用户级缓存不可写，需改项目内缓存 |
+| uv | 0.11.1，`%USERPROFILE%\.local\bin\uv.exe` | ⚠️ 用户级缓存不可写，需改项目内缓存 |
 | pip | 随 Python 提供 | ✅（需改缓存目录） |
 
-Git 身份已配置：
-
-```
-user.name  = <hidden>
-user.email = tbs@users.noreply.github.com
-```
+Git 身份已配置；为避免泄露个人信息，本文不记录本机的 `user.name` / `user.email`。
 
 未设置 `core.autocrlf`；仓库通过 `.gitattributes` 统一为 LF（`.bat`/`.ps1` 为 CRLF）。
 
@@ -48,7 +42,7 @@ user.email = tbs@users.noreply.github.com
 ## 3. Node / npm 生态
 
 - 默认 registry：`https://registry.npmjs.org/`，网络可达。
-- **限制**：npm 默认缓存 `C:\Users\user\AppData\Local\npm-cache` 在当前会话沙箱下不可写（`EPERM`）。必须使用项目内缓存：
+- **限制**：npm 默认缓存 `%LOCALAPPDATA%\npm-cache` 在当前会话沙箱下不可写（`EPERM`）。必须使用项目内缓存：
 
 ```powershell
 # 方式一：命令行参数
@@ -100,7 +94,7 @@ npm install
 
 计划在 M1 创建 `backend/.venv` 并安装 `backend/requirements.txt`。当前会话中：
 
-- `uv` 默认缓存 `C:\Users\user\AppData\Local\uv\cache` 不可写；
+- `uv` 默认缓存 `%LOCALAPPDATA%\uv\cache` 不可写；
 - pip 默认缓存同样可能受沙箱限制。
 
 建议命令：
@@ -163,8 +157,8 @@ SetNamedSecurityInfoW failed (Win32 5): grantWrite(D:\workspace\mahj)
 
 已通过一次性授权运行诊断脚本修复：为当前用户补上该目录的完全控制项，并重新读取验证通过。未修改文件内容与所有者。
 
-- 备份与回滚脚本：`D:\workspace\mahj-acl-recovery\`
-- 报告：`D:\workspace\mahj-acl-recovery\acl-report-00000000000000000000000000000000.jsonl`
+- 备份与回滚脚本：工作区同级的 `mahj-acl-recovery\`（仓库之外，本机路径已隐去）
+- 报告：该目录下的 `acl-report-<id>.jsonl`
 - 如后续需要恢复原权限，可运行备份目录中 `acl-backup-*.json.ps1` 的 `-Restore` 命令。
 
 该目录在仓库之外，不影响代码；保留用于审计/回滚。
