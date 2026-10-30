@@ -22,6 +22,9 @@ import { ParticleBurst } from './particles'
 
 const CAMERA_FOV = 34
 const CAMERA_PITCH = THREE.MathUtils.degToRad(60)
+const CAMERA_MIN_FOV = 22
+const CAMERA_MAX_FOV = 50
+const CAMERA_YAW_LIMIT = Math.PI / 3
 const DRAG_THRESHOLD = 6
 
 export type RenderQuality = 'auto' | 'high' | 'medium' | 'low'
@@ -296,6 +299,20 @@ export class GameRenderer {
   private hintUntil = 0
   private pointerDown: PointerDownState | null = null
   private drag: DragState | null = null
+  private cameraDrag: {
+    button: number
+    lastX: number
+    lastY: number
+    pointerId: number
+  } | null = null
+  private cameraReady = false
+  private cameraHeight = 0
+  private fitRadius = 0
+  private cameraRadius = 0
+  private cameraYaw = 0
+  private readonly focusTarget = new THREE.Vector3(0, 0.25, 0.35)
+  private readonly panRight = new THREE.Vector3()
+  private readonly panForward = new THREE.Vector3()
 
   constructor(
     container: HTMLElement,
@@ -913,6 +930,8 @@ export class GameRenderer {
     canvas.addEventListener('pointerup', this.onPointerUp)
     canvas.addEventListener('pointercancel', this.onPointerCancel)
     canvas.addEventListener('contextmenu', this.onContextMenu)
+    canvas.addEventListener('auxclick', this.onAuxClick)
+    canvas.addEventListener('wheel', this.onWheel, { passive: false })
   }
 
   private unbindEvents(): void {
@@ -922,14 +941,50 @@ export class GameRenderer {
     canvas.removeEventListener('pointerup', this.onPointerUp)
     canvas.removeEventListener('pointercancel', this.onPointerCancel)
     canvas.removeEventListener('contextmenu', this.onContextMenu)
+    canvas.removeEventListener('auxclick', this.onAuxClick)
+    canvas.removeEventListener('wheel', this.onWheel)
   }
 
   private readonly onContextMenu = (event: Event): void => {
     event.preventDefault()
   }
 
+  private readonly onAuxClick = (event: Event): void => {
+    event.preventDefault()
+  }
+
+  private readonly onWheel = (event: WheelEvent): void => {
+    if (!this.interactive) return
+    event.preventDefault()
+    const next = clamp(
+      this.camera.fov + event.deltaY * 0.02,
+      CAMERA_MIN_FOV,
+      CAMERA_MAX_FOV,
+    )
+    if (next !== this.camera.fov) {
+      this.camera.fov = next
+      this.camera.updateProjectionMatrix()
+    }
+  }
+
   private readonly onPointerDown = (event: PointerEvent): void => {
-    if (!this.interactive || this.pointerDown || this.drag) return
+    if (!this.interactive) return
+    if (
+      event.pointerType === 'mouse' &&
+      (event.button === 1 || event.button === 2)
+    ) {
+      event.preventDefault()
+      this.cameraDrag = {
+        button: event.button,
+        lastX: event.clientX,
+        lastY: event.clientY,
+        pointerId: event.pointerId,
+      }
+      this.renderer.domElement.setPointerCapture(event.pointerId)
+      this.renderer.domElement.style.cursor = 'grabbing'
+      return
+    }
+    if (this.pointerDown || this.drag) return
     if (event.button !== 0 && event.pointerType === 'mouse') return
     const hit = this.pickTile(event)
     event.preventDefault()
@@ -947,6 +1002,11 @@ export class GameRenderer {
   }
 
   private readonly onPointerMove = (event: PointerEvent): void => {
+    if (this.cameraDrag) {
+      this.updateCameraDrag(event)
+      return
+    }
+
     if (this.drag) {
       this.updateDragFromPointer(event)
       return
@@ -999,6 +1059,12 @@ export class GameRenderer {
       canvas.releasePointerCapture(event.pointerId)
     }
 
+    if (this.cameraDrag) {
+      this.cameraDrag = null
+      canvas.style.cursor = 'default'
+      return
+    }
+
     if (this.drag) {
       const drag = this.drag
       this.drag = null
@@ -1018,13 +1084,71 @@ export class GameRenderer {
     }
   }
 
-  private readonly onPointerCancel = (): void => {
+  private readonly onPointerCancel = (event: PointerEvent): void => {
+    if (this.cameraDrag) {
+      if (this.renderer.domElement.hasPointerCapture(event.pointerId)) {
+        this.renderer.domElement.releasePointerCapture(event.pointerId)
+      }
+      this.cameraDrag = null
+      this.renderer.domElement.style.cursor = 'default'
+    }
     this.pointerDown = null
     if (this.drag) {
       this.drag = null
       this.callbacks.onDragCancel()
       this.resetDragVisuals()
     }
+  }
+
+  private updateCameraDrag(event: PointerEvent): void {
+    const drag = this.cameraDrag
+    if (!drag) return
+    const dx = event.clientX - drag.lastX
+    const dy = event.clientY - drag.lastY
+    drag.lastX = event.clientX
+    drag.lastY = event.clientY
+
+    if (drag.button === 2) {
+      this.cameraYaw = clamp(
+        this.cameraYaw - dx * 0.006,
+        -CAMERA_YAW_LIMIT,
+        CAMERA_YAW_LIMIT,
+      )
+      this.cameraRadius = clamp(
+        this.cameraRadius + dy * 0.02,
+        this.fitRadius * 0.45,
+        this.fitRadius * 1.8,
+      )
+    } else {
+      this.panCamera(dx, dy)
+    }
+    this.applyCameraView()
+  }
+
+  private panCamera(dx: number, dy: number): void {
+    const height = this.renderer.domElement.clientHeight
+    if (height <= 0) return
+    const scale =
+      (2 * this.cameraHeight * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) /
+      height
+    this.panRight.setFromMatrixColumn(this.camera.matrixWorld, 0)
+    this.panRight.y = 0
+    this.panRight.normalize()
+    this.camera.getWorldDirection(this.panForward)
+    this.panForward.y = 0
+    this.panForward.normalize()
+
+    const { width, depth } = boardDimensions(this.rows, this.cols)
+    const nextX =
+      this.focusTarget.x -
+      this.panRight.x * dx * scale +
+      this.panForward.x * dy * scale
+    const nextZ =
+      this.focusTarget.z -
+      this.panRight.z * dx * scale +
+      this.panForward.z * dy * scale
+    this.focusTarget.x = clamp(nextX, -width / 2, width / 2)
+    this.focusTarget.z = clamp(nextZ, -depth / 2, depth / 2)
   }
 
   private updateDragFromPointer(event: PointerEvent): void {
@@ -1325,7 +1449,8 @@ export class GameRenderer {
     this.ssaoPass.setSize(width, height)
     this.camera.aspect = width / height
     this.camera.updateProjectionMatrix()
-    this.fitCamera()
+    if (!this.cameraReady) this.fitCamera()
+    else this.applyCameraView()
   }
 
   private fitCamera(): void {
@@ -1363,13 +1488,13 @@ export class GameRenderer {
     }
 
     const distance = high
-    this.camera.position.set(
-      0,
-      distance * Math.sin(CAMERA_PITCH),
-      distance * Math.cos(CAMERA_PITCH),
-    )
-    this.camera.lookAt(target)
-    this.camera.updateMatrixWorld(true)
+    this.focusTarget.copy(target)
+    this.cameraHeight = distance * Math.sin(CAMERA_PITCH)
+    this.fitRadius = distance * Math.cos(CAMERA_PITCH)
+    this.cameraRadius = this.fitRadius
+    this.cameraYaw = 0
+    this.cameraReady = true
+    this.applyCameraView()
 
     const shadowRadius = Math.max(width, depth) / 2 + 2
     const shadowCamera = this.keyLight.shadow.camera
@@ -1378,5 +1503,15 @@ export class GameRenderer {
     shadowCamera.top = shadowRadius
     shadowCamera.bottom = -shadowRadius
     shadowCamera.updateProjectionMatrix()
+  }
+
+  private applyCameraView(): void {
+    this.camera.position.set(
+      this.focusTarget.x + Math.sin(this.cameraYaw) * this.cameraRadius,
+      this.cameraHeight,
+      this.focusTarget.z + Math.cos(this.cameraYaw) * this.cameraRadius,
+    )
+    this.camera.lookAt(this.focusTarget)
+    this.camera.updateMatrixWorld(true)
   }
 }

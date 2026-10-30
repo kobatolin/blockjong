@@ -89,7 +89,7 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 - **牌面外框**：轮廓数据已剔除整牌边框；边框由 3D 牌体承担。白板内框在 `facePainter.ts` 里单独补画，否则会空白。
 - **牌面光照**：牌面用 `MeshPhysicalMaterial`（`map` + `normalMap`、无 `emissive`），干净亚克力底 + 深色填漆；独立高程图生成法线，阴刻高度同时控制 normalScale 与烘焙凹槽暗边。`TileFactory.setFaceHeight()` 重新生成 42 张牌面 map/normalMap；牌面边缘另有一层只覆盖边框的 additive 高光，不能改成覆盖整张牌面的白色反光层，否则会洗掉刻痕对比度。
 - **拾取坐标**：NDC 用 `canvas.getBoundingClientRect()`，不是 `window.innerWidth`。
-- **相机适配**：棋盘为竖长格（`CELL_D = 1.25`），别按正方形算范围。
+- **相机适配**：棋盘为竖长格（`CELL_D = 1.25`），别按正方形算范围。相机高度在首次 fit 后固定；滚轮只改 FOV（22–50°），右键绕目标水平旋转（yaw ±60°）+ 改变观察半径，中键在桌面平面平移目标（限制在棋盘范围）；左键牌面拖动与相机的右键/中键手势互斥。
 - **种子**：0 是合法 seed，“未输入”用 `null`；URL 的 `?seed=` 必须走同一套校验；随机 seed 用 `crypto.getRandomValues`，不要用 `Math.random` 生成开局布局。
 - **DSH 沙箱**：Vite 8 会执行 `net use` 探测网络盘，`scripts/sandbox-preload.cjs` 只拦截这一条命令；Vitest 必须用 `--pool=threads`（forks 会 spawn 子进程被拒）。这只影响本会话，普通环境用 `npm run dev/build/test` 即可。
 
