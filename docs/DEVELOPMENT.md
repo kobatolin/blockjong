@@ -45,7 +45,7 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 
 ```powershell
 cd frontend
-npm run test        # Vitest（67 个用例）
+npm run test        # Vitest（69 个用例）
 npm run build       # vite build -> frontend/dist
 npx vue-tsc --noEmit  # 类型检查
 

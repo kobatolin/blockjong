@@ -1,11 +1,12 @@
 /** URL state for `?mode=...&seed=...` and clipboard helpers. */
 import { MODE_IDS } from '@/core/kinds'
 import { parseSeedInput } from '@/core/seed'
-import type { ModeId } from '@/core/types'
+import type { Layout, ModeId } from '@/core/types'
 
 export interface UrlState {
   mode: ModeId | null
   seed: number | null
+  layout?: Layout
 }
 
 export function parseUrlState(search?: string): UrlState {
@@ -24,22 +25,32 @@ export function parseUrlState(search?: string): UrlState {
     const parsed = parseSeedInput(rawSeed)
     if (parsed.ok) seed = parsed.seed
   }
-  return { mode, seed }
+  const rawLayout = params.get('layout')
+  const layout: Layout | undefined =
+    rawLayout === 'wide' || rawLayout === 'tall' ? rawLayout : undefined
+  return layout ? { mode, seed, layout } : { mode, seed }
 }
 
-export function writeUrlState(mode: ModeId, seed: number): void {
+export function writeUrlState(mode: ModeId, seed: number, layout: Layout): void {
   if (typeof window === 'undefined') return
   const url = new URL(window.location.href)
   url.searchParams.set('mode', mode)
   url.searchParams.set('seed', String(seed >>> 0))
+  url.searchParams.set('layout', layout)
   window.history.replaceState({}, '', url)
 }
 
-export function buildShareUrl(mode: ModeId, seed: number, base?: string): string {
+export function buildShareUrl(
+  mode: ModeId,
+  seed: number,
+  layout: Layout,
+  base?: string,
+): string {
   const fallback = typeof window !== 'undefined' ? window.location.href : 'http://localhost/'
   const url = new URL(base ?? fallback)
   url.searchParams.set('mode', mode)
   url.searchParams.set('seed', String(seed >>> 0))
+  url.searchParams.set('layout', layout)
   return url.toString()
 }
 

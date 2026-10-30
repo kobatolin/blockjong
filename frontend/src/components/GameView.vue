@@ -2,11 +2,11 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { boardSignature, tileById } from '@/core/board'
 import { findAnyDrag, findAssistedTap, newVisiblePartners, segment, type AnyMove } from '@/core/drag'
-import { MODE_CONFIGS, totalTilesForMode } from '@/core/kinds'
+import { MODE_CONFIGS, layoutDimensions, totalTilesForMode } from '@/core/kinds'
 import { findVisiblePartners } from '@/core/rules'
 import { formatSeed, formatSeedHex, randomSeed } from '@/core/seed'
 import { GameSession } from '@/core/session'
-import type { Dir, GameSnapshot, ModeId, SeedSource } from '@/core/types'
+import type { Dir, GameSnapshot, Layout, ModeId, SeedSource } from '@/core/types'
 import { GameRenderer, DEFAULT_RENDER_TUNING, type DragPreviewInfo, type DragStartInfo, type GameRendererCallbacks, type RenderTuning } from '@/render/GameRenderer'
 import { Sfx } from '@/render/audio'
 import { useGameStore } from '@/stores/game'
@@ -24,6 +24,7 @@ interface StartOptions {
   mode: ModeId
   seed: number
   seedSource: SeedSource
+  layout: Layout
 }
 
 interface MahjDebugApi {
@@ -96,12 +97,14 @@ const store = useGameStore()
 const sfx = new Sfx()
 sfx.setEnabled(store.sound)
 const config = MODE_CONFIGS[props.options.mode]
+const dims = layoutDimensions(props.options.mode, props.options.layout)
 const total = totalTilesForMode(props.options.mode)
 
 let session = GameSession.create(
   props.options.mode,
   props.options.seed,
   props.options.seedSource,
+  props.options.layout,
 )
 
 const host = ref<HTMLDivElement | null>(null)
@@ -680,7 +683,8 @@ function handleRestartAction(): void {
 
 function startSession(mode: ModeId, seed: number, seedSource: SeedSource): void {
   pauseTimer()
-  session = GameSession.create(mode, seed, seedSource)
+  const layout = session.layout
+  session = GameSession.create(mode, seed, seedSource, layout)
   snapshot.value = session.snapshot()
   seedLabel.value = formatSeed(session.seed)
   isCustom.value = seedSource === 'custom'
@@ -695,7 +699,7 @@ function startSession(mode: ModeId, seed: number, seedSource: SeedSource): void 
   elapsedMs.value = 0
   renderer?.setBoard(session.getBoard())
   renderer?.setInteractive(true)
-  writeUrlState(mode, seed)
+  writeUrlState(mode, seed, layout)
   syncView()
   startTimer()
 }
@@ -715,7 +719,7 @@ async function copySeed(): Promise<void> {
 }
 
 async function copyLink(): Promise<void> {
-  const ok = await copyText(buildShareUrl(session.mode, session.seed))
+  const ok = await copyText(buildShareUrl(session.mode, session.seed, session.layout))
   if (ok) sfx.click()
   showToast(ok ? '分享链接已复制' : '复制失败')
 }
@@ -932,7 +936,7 @@ function installDebugBridge(): void {
 
 onMounted(() => {
   if (!host.value) return
-  renderer = new GameRenderer(host.value, config.rows, config.cols, callbacks)
+  renderer = new GameRenderer(host.value, dims.rows, dims.cols, callbacks)
   renderer.setQuality(store.quality)
   renderer.setMotion(store.motion)
   renderer.setLighting({
@@ -946,7 +950,7 @@ onMounted(() => {
   // material receives the exact clearcoat/roughness/reflection values.
   renderer.setTuning({ ...DEFAULT_RENDER_TUNING })
   renderer.start()
-  writeUrlState(session.mode, session.seed)
+  writeUrlState(session.mode, session.seed, session.layout)
   syncView()
   startTimer()
   if (shouldShowTutorial()) {

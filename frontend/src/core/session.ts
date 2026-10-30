@@ -23,6 +23,7 @@ import type {
   BoardSnapshot,
   Dir,
   GameSnapshot,
+  Layout,
   ModeId,
   Phase,
   SeedSource,
@@ -34,6 +35,7 @@ export interface SessionInit {
   seed: number
   seedSource: SeedSource
   board: BoardSnapshot
+  layout?: Layout
 }
 
 export interface DragInfo {
@@ -114,6 +116,7 @@ export class GameSession {
   readonly mode: ModeId
   readonly seed: number
   readonly seedSource: SeedSource
+  readonly layout: Layout
 
   private board: BoardSnapshot
   private phase: Phase
@@ -129,16 +132,23 @@ export class GameSession {
     this.mode = init.mode
     this.seed = init.seed >>> 0
     this.seedSource = init.seedSource
+    this.layout = init.layout ?? 'wide'
     this.board = init.board
     this.phase = this.evaluatePhase()
   }
 
-  static create(mode: ModeId, seed: number, seedSource: SeedSource): GameSession {
+  static create(
+    mode: ModeId,
+    seed: number,
+    seedSource: SeedSource,
+    layout: Layout = 'wide',
+  ): GameSession {
     return new GameSession({
       mode,
       seed,
       seedSource,
-      board: generateBoard(mode, seed),
+      layout,
+      board: generateBoard(mode, seed, layout),
     })
   }
 

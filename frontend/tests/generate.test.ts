@@ -103,6 +103,33 @@ describe('generation', () => {
     }
   })
 
+  it('transposes the same tiles for the tall layout', () => {
+    for (const mode of MODES) {
+      const wide = generateBoard(mode, 2026, 'wide')
+      const tall = generateBoard(mode, 2026, 'tall')
+      expect(tall.rows).toBe(wide.cols)
+      expect(tall.cols).toBe(wide.rows)
+      expect(listTiles(tall)).toHaveLength(listTiles(wide).length)
+      for (let row = 0; row < wide.rows; row += 1) {
+        for (let col = 0; col < wide.cols; col += 1) {
+          const source = wide.cells[row * wide.cols + col]
+          const target = tall.cells[col * tall.cols + row]
+          if (!source) {
+            expect(target).toBeNull()
+            continue
+          }
+          expect(target).toMatchObject({
+            id: source.id,
+            kindId: source.kindId,
+            row: col,
+            col: row,
+          })
+        }
+      }
+      expect(findAnyMove(tall)).not.toBeNull()
+    }
+  })
+
   it('keeps the fallback playable', () => {
     for (const mode of MODES) {
       expect(findAnyMove(fallbackPlayableLayout(mode))).not.toBeNull()

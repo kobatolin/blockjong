@@ -1,9 +1,9 @@
 /** Deterministic layout generation for the three modes. */
-import { boardFromKindIds } from './board'
+import { boardFromKindIds, transposeBoard } from './board'
 import { findAnyMove } from './drag'
 import { KINDS, getMode, kindCountsForMode } from './kinds'
 import { mulberry32, shuffleInPlace } from './rng'
-import type { BoardSnapshot, FlowerGroup, ModeId } from './types'
+import type { BoardSnapshot, FlowerGroup, Layout, ModeId } from './types'
 
 export function buildBag(mode: ModeId): string[] {
   const bag: string[] = []
@@ -13,7 +13,16 @@ export function buildBag(mode: ModeId): string[] {
   return bag
 }
 
-export function generateBoard(mode: ModeId, seed: number): BoardSnapshot {
+export function generateBoard(
+  mode: ModeId,
+  seed: number,
+  layout: Layout = 'wide',
+): BoardSnapshot {
+  const board = generateWideBoard(mode, seed)
+  return layout === 'tall' ? transposeBoard(board) : board
+}
+
+function generateWideBoard(mode: ModeId, seed: number): BoardSnapshot {
   const config = getMode(mode)
   const rng = mulberry32(seed >>> 0)
   const bag = buildBag(mode)

@@ -28,10 +28,28 @@ describe('URL state', () => {
     })
   })
 
+  it('parses an explicit layout and ignores invalid ones', () => {
+    expect(parseUrlState('?mode=medium&seed=1&layout=tall')).toEqual({
+      mode: 'medium',
+      seed: 1,
+      layout: 'tall',
+    })
+    expect(parseUrlState('?mode=medium&seed=1&layout=diagonal')).toEqual({
+      mode: 'medium',
+      seed: 1,
+    })
+  })
+
   it('builds a shareable URL', () => {
-    const url = buildShareUrl('full', 12345, 'http://localhost:8000/?debug=1')
+    const url = buildShareUrl(
+      'full',
+      12345,
+      'tall',
+      'http://localhost:8000/?debug=1',
+    )
     expect(url).toContain('mode=full')
     expect(url).toContain('seed=12345')
+    expect(url).toContain('layout=tall')
     expect(url).toContain('debug=1')
   })
 })

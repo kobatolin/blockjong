@@ -4,6 +4,7 @@ export type Suit = 'pin' | 'sou' | 'man' | 'honor' | 'flower';
 export type FlowerGroup = 'season' | 'blossom';
 export type ModeId = 'easy' | 'medium' | 'full';
 export type SeedSource = 'random' | 'custom';
+export type Layout = 'wide' | 'tall';
 export type Phase = 'idle' | 'won' | 'deadlock';
 export type Dir = 'left' | 'right' | 'up' | 'down';
 

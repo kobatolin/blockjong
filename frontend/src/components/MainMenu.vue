@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import {
   MODE_CONFIGS,
   MODE_IDS,
+  layoutDimensions,
   totalTilesForMode,
 } from '@/core/kinds'
 import {
@@ -11,7 +12,7 @@ import {
   parseSeedInput,
   randomSeed,
 } from '@/core/seed'
-import type { ModeId, SeedSource } from '@/core/types'
+import type { Layout, ModeId, SeedSource } from '@/core/types'
 import { useGameStore } from '@/stores/game'
 import { formatTime } from '@/utils/format'
 import { writeUrlState } from '@/utils/url'
@@ -22,11 +23,13 @@ interface StartOptions {
   mode: ModeId
   seed: number
   seedSource: SeedSource
+  layout: Layout
 }
 
 const props = defineProps<{
   initialMode?: ModeId
   initialSeed?: number | null
+  initialLayout?: Layout
 }>()
 
 const emit = defineEmits<{
@@ -36,6 +39,12 @@ const emit = defineEmits<{
 const store = useGameStore()
 const settingsOpen = ref(false)
 const selectedMode = ref<ModeId>(props.initialMode ?? 'easy')
+const layout = ref<Layout>(
+  props.initialLayout ??
+    (typeof window !== 'undefined' && window.innerWidth > window.innerHeight
+      ? 'wide'
+      : 'tall'),
+)
 const seedOpen = ref(
   props.initialSeed !== null && props.initialSeed !== undefined,
 )
@@ -58,13 +67,20 @@ const seedPreview = computed(() => {
 const modeCards = computed(() =>
   MODE_IDS.map((id) => {
     const config = MODE_CONFIGS[id]
+    const dims = layoutDimensions(id, layout.value)
     return {
       ...config,
+      rows: dims.rows,
+      cols: dims.cols,
       total: totalTilesForMode(id),
       visual:
         id === 'easy' ? '筒' : id === 'medium' ? '索' : '萬',
     }
   }),
+)
+
+const selectedDimensions = computed(() =>
+  layoutDimensions(selectedMode.value, layout.value),
 )
 
 function recordText(mode: ModeId): string {
@@ -77,8 +93,13 @@ function startGame(): void {
   if (!parsed.value.ok) return
   const seed = parsed.value.seed ?? randomSeed()
   const seedSource: SeedSource = parsed.value.seed === null ? 'random' : 'custom'
-  writeUrlState(selectedMode.value, seed)
-  emit('start', { mode: selectedMode.value, seed, seedSource })
+  writeUrlState(selectedMode.value, seed, layout.value)
+  emit('start', {
+    mode: selectedMode.value,
+    seed,
+    seedSource,
+    layout: layout.value,
+  })
 }
 </script>
 
@@ -131,6 +152,30 @@ function startGame(): void {
 
       <section class="launch" @keydown.enter="startGame">
         <div class="launch-main">
+          <div class="layout-row">
+            <span class="layout-label">布局</span>
+            <div class="layout-switch" role="group" aria-label="布局方向">
+              <button
+                type="button"
+                :class="{ active: layout === 'wide' }"
+                :aria-pressed="layout === 'wide'"
+                @click="layout = 'wide'"
+              >
+                横向
+              </button>
+              <button
+                type="button"
+                :class="{ active: layout === 'tall' }"
+                :aria-pressed="layout === 'tall'"
+                @click="layout = 'tall'"
+              >
+                纵向
+              </button>
+            </div>
+            <span class="layout-size">
+              {{ selectedDimensions.rows }} × {{ selectedDimensions.cols }}
+            </span>
+          </div>
           <button
             type="button"
             class="seed-toggle"
@@ -348,6 +393,48 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.layout-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.layout-label {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+.layout-switch {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.layout-switch button {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.layout-switch button.active {
+  background: rgba(217, 179, 108, 0.16);
+  color: var(--gold);
+}
+
+.layout-size {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 .seed-toggle {

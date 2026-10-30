@@ -133,3 +133,25 @@ export function boardSignature(board: BoardSnapshot): string {
 export function cloneBoardCells(board: BoardSnapshot): (Tile | null)[] {
   return board.cells.map((tile) => (tile ? cloneTile(tile) : null))
 }
+
+/** Rotate the grid 90°: the same tiles/ids, with rows and columns swapped. */
+export function transposeBoard(board: BoardSnapshot): BoardSnapshot {
+  const rows = board.cols
+  const cols = board.rows
+  const cells = new Array<Tile | null>(rows * cols).fill(null)
+  for (let row = 0; row < board.rows; row += 1) {
+    for (let col = 0; col < board.cols; col += 1) {
+      const tile = board.cells[row * board.cols + col]
+      if (!tile) continue
+      const nextRow = col
+      const nextCol = row
+      cells[nextRow * cols + nextCol] = {
+        id: tile.id,
+        kindId: tile.kindId,
+        row: nextRow,
+        col: nextCol,
+      }
+    }
+  }
+  return { rows, cols, cells }
+}

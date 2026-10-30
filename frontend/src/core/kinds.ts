@@ -5,7 +5,7 @@
  * while each flower exists exactly once in the 144-tile full mode and is
  * matched against its flower group instead of its exact face.
  */
-import type { FlowerGroup, ModeConfig, ModeId, Suit, TileKind } from './types'
+import type { FlowerGroup, Layout, ModeConfig, ModeId, Suit, TileKind } from './types'
 
 const NUMERALS = ['一', '二', '三', '四', '五', '六', '七', '八', '九'] as const
 
@@ -113,6 +113,17 @@ export function kindCountsForMode(mode: ModeId): KindCount[] {
 
 export function totalTilesForMode(mode: ModeId): number {
   return kindCountsForMode(mode).reduce((sum, item) => sum + item.count, 0)
+}
+
+/** Display orientation: `tall` transposes the generated grid (same tiles). */
+export function layoutDimensions(
+  mode: ModeId,
+  layout: Layout,
+): { rows: number; cols: number } {
+  const config = MODE_CONFIGS[mode]
+  return layout === 'tall'
+    ? { rows: config.cols, cols: config.rows }
+    : { rows: config.rows, cols: config.cols }
 }
 
 export function kindOf(kindId: string): TileKind {
