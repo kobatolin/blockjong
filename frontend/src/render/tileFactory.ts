@@ -161,6 +161,15 @@ export class TileFactory {
     }
   }
 
+  setFaceColor(color: string): void {
+    this.painter.setBaseColor(color)
+    for (const [kindId, material] of this.faceMaterials) {
+      material.map = this.painter.get(kindId)
+      material.normalMap = this.painter.getNormal(kindId)
+      material.needsUpdate = true
+    }
+  }
+
   setFaceHeight(height: number): void {
     this.painter.setEmboss(height)
     for (const [kindId, material] of this.faceMaterials) {

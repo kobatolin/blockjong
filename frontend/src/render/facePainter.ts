@@ -60,9 +60,9 @@ const V2_IDS: Record<string, string> = {
   'flower-chrysanthemum': 'flower-chrysanthemum',
 }
 
-function paintPaper(ctx: CanvasRenderingContext2D): void {
-  // Clean cast-acrylic ivory: a flat, bright base instead of paper grain.
-  ctx.fillStyle = PAPER_HI
+function paintPaper(ctx: CanvasRenderingContext2D, baseColor: string): void {
+  // Clean cast-acrylic base; user-adjustable in RENDER DEBUG.
+  ctx.fillStyle = baseColor
   ctx.fillRect(0, 0, FACE_W, FACE_H)
   const glow = ctx.createRadialGradient(54, 30, 0, 54, 30, 250)
   glow.addColorStop(0, 'rgba(255,255,255,.16)')
@@ -71,11 +71,15 @@ function paintPaper(ctx: CanvasRenderingContext2D): void {
   ctx.fillRect(0, 0, FACE_W, FACE_H)
 }
 
-export function paintFaceCanvas(kindId: string, emboss = 0.12): HTMLCanvasElement {
+export function paintFaceCanvas(
+  kindId: string,
+  emboss = 0.12,
+  baseColor = PAPER_HI,
+): HTMLCanvasElement {
   const kind = kindOf(kindId)
   const canvas = createCanvas(FACE_W, FACE_H)
   const ctx = canvas.getContext('2d')!
-  paintPaper(ctx)
+  paintPaper(ctx, baseColor)
 
   const v2Id = V2_IDS[kind.id]
   if (!v2Id) return canvas
@@ -117,8 +121,12 @@ export function paintFaceCanvas(kindId: string, emboss = 0.12): HTMLCanvasElemen
   return canvas
 }
 
-export function paintBumpCanvas(kindId: string, emboss = 0.12): HTMLCanvasElement {
-  const source = paintFaceCanvas(kindId, emboss)
+export function paintBumpCanvas(
+  kindId: string,
+  emboss = 0.12,
+  baseColor = PAPER_HI,
+): HTMLCanvasElement {
+  const source = paintFaceCanvas(kindId, emboss, baseColor)
   const raw = createCanvas(FACE_W, FACE_H)
   const rawCtx = raw.getContext('2d')!
   rawCtx.drawImage(source, 0, 0)
@@ -144,8 +152,12 @@ export function paintBumpCanvas(kindId: string, emboss = 0.12): HTMLCanvasElemen
   return canvas
 }
 
-export function paintNormalCanvas(kindId: string, emboss = 0.12): HTMLCanvasElement {
-  const height = paintBumpCanvas(kindId, emboss)
+export function paintNormalCanvas(
+  kindId: string,
+  emboss = 0.12,
+  baseColor = PAPER_HI,
+): HTMLCanvasElement {
+  const height = paintBumpCanvas(kindId, emboss, baseColor)
   const source = height.getContext('2d')!.getImageData(0, 0, FACE_W, FACE_H)
   const canvas = createCanvas(FACE_W, FACE_H)
   const ctx = canvas.getContext('2d')!
@@ -178,6 +190,7 @@ export class FacePainter {
   private readonly normalCache = new Map<string, THREE.CanvasTexture>()
   private readonly maxAnisotropy: number
   private emboss = 0.12
+  private baseColor = PAPER_HI
 
   constructor(renderer: THREE.WebGLRenderer) {
     this.maxAnisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy())
@@ -187,7 +200,9 @@ export class FacePainter {
     const cached = this.cache.get(kindId)
     if (cached) return cached
 
-    const texture = new THREE.CanvasTexture(paintFaceCanvas(kindId, this.emboss))
+    const texture = new THREE.CanvasTexture(
+      paintFaceCanvas(kindId, this.emboss, this.baseColor),
+    )
     texture.colorSpace = THREE.SRGBColorSpace
     texture.anisotropy = this.maxAnisotropy
     texture.needsUpdate = true
@@ -199,7 +214,9 @@ export class FacePainter {
     const cached = this.bumpCache.get(kindId)
     if (cached) return cached
 
-    const texture = new THREE.CanvasTexture(paintBumpCanvas(kindId, this.emboss))
+    const texture = new THREE.CanvasTexture(
+      paintBumpCanvas(kindId, this.emboss, this.baseColor),
+    )
     texture.colorSpace = THREE.NoColorSpace
     texture.anisotropy = this.maxAnisotropy
     texture.needsUpdate = true
@@ -211,7 +228,9 @@ export class FacePainter {
     const cached = this.normalCache.get(kindId)
     if (cached) return cached
 
-    const texture = new THREE.CanvasTexture(paintNormalCanvas(kindId, this.emboss))
+    const texture = new THREE.CanvasTexture(
+      paintNormalCanvas(kindId, this.emboss, this.baseColor),
+    )
     texture.colorSpace = THREE.NoColorSpace
     texture.anisotropy = this.maxAnisotropy
     texture.needsUpdate = true
@@ -221,6 +240,15 @@ export class FacePainter {
 
   setEmboss(value: number): void {
     this.emboss = value
+    this.clearCaches()
+  }
+
+  setBaseColor(color: string): void {
+    this.baseColor = color
+    this.clearCaches()
+  }
+
+  private clearCaches(): void {
     for (const texture of this.cache.values()) texture.dispose()
     for (const texture of this.bumpCache.values()) texture.dispose()
     for (const texture of this.normalCache.values()) texture.dispose()
@@ -231,12 +259,7 @@ export class FacePainter {
 
   setPalette(palette: { ink: string; red: string; green: string }): void {
     setLayerColors(palette)
-    for (const texture of this.cache.values()) texture.dispose()
-    for (const texture of this.bumpCache.values()) texture.dispose()
-    for (const texture of this.normalCache.values()) texture.dispose()
-    this.cache.clear()
-    this.bumpCache.clear()
-    this.normalCache.clear()
+    this.clearCaches()
   }
 
   dispose(): void {

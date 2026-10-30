@@ -24,7 +24,12 @@ const tuning = reactive<RenderTuning>({ ...DEFAULT_RENDER_TUNING })
 const collapsed = ref(false)
 let colorTimer: ReturnType<typeof setTimeout> | null = null
 
-const colors: Array<{ key: 'inkColor' | 'redColor' | 'greenColor'; label: string }> = [
+const colors: Array<{
+  key: 'inkColor' | 'redColor' | 'greenColor' | 'faceColor' | 'bodyColor'
+  label: string
+}> = [
+  { key: 'faceColor', label: '牌面底色' },
+  { key: 'bodyColor', label: '牌体颜色' },
   { key: 'inkColor', label: '墨色' },
   { key: 'redColor', label: '红色' },
   { key: 'greenColor', label: '绿色' },
@@ -108,7 +113,10 @@ function onInput(key: NumericTuningKey, event: Event): void {
   applyNow()
 }
 
-function onColor(key: 'inkColor' | 'redColor' | 'greenColor', event: Event): void {
+function onColor(
+  key: 'inkColor' | 'redColor' | 'greenColor' | 'faceColor' | 'bodyColor',
+  event: Event,
+): void {
   tuning[key] = (event.target as HTMLInputElement).value
   clearColorTimer()
   // Re-baking 42 face textures is much heavier than moving a material slider.

@@ -59,6 +59,8 @@ export interface RenderTuning {
   inkColor: string
   redColor: string
   greenColor: string
+  faceColor: string
+  bodyColor: string
 }
 
 export const DEFAULT_RENDER_TUNING: RenderTuning = {
@@ -89,6 +91,8 @@ export const DEFAULT_RENDER_TUNING: RenderTuning = {
   inkColor: '#0a0f0d',
   redColor: '#982f34',
   greenColor: '#174633',
+  faceColor: '#fcfaf3',
+  bodyColor: '#d2c1a5',
 }
 
 export interface DragStartInfo {
@@ -273,6 +277,8 @@ export class GameRenderer {
     green: '#174633',
   }
   private faceHeight = 0.12
+  private faceColor = '#fcfaf3'
+  private bodyColor = '#d2c1a5'
   private particleCount = 28
   private frameSeconds = 0
   private frameSamples = 0
@@ -521,6 +527,16 @@ export class GameRenderer {
     if (tuning.faceBumpScale !== this.faceHeight) {
       this.faceHeight = tuning.faceBumpScale
       this.tileFactory.setFaceHeight(this.faceHeight)
+    }
+
+    if (tuning.faceColor !== this.faceColor) {
+      this.faceColor = tuning.faceColor
+      this.tileFactory.setFaceColor(this.faceColor)
+    }
+
+    if (tuning.bodyColor !== this.bodyColor) {
+      this.bodyColor = tuning.bodyColor
+      this.tileFactory.getBodyMaterial().color.set(tuning.bodyColor)
     }
   }
 
