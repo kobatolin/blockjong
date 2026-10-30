@@ -6,25 +6,27 @@ import { createCanvas } from './canvas'
 import { CORNER_R, TILE_D, TILE_H, TILE_W, tileX, tileZ } from './layout'
 import { FacePainter } from './facePainter'
 
-function createGlossTexture(): THREE.CanvasTexture {
+function createRimTexture(): THREE.CanvasTexture {
   const canvas = createCanvas(256, 320)
   const ctx = canvas.getContext('2d')!
   ctx.clearRect(0, 0, 256, 320)
-  const band = ctx.createLinearGradient(0, 0, 256, 320)
-  band.addColorStop(0, 'rgba(255,255,255,0)')
-  band.addColorStop(0.3, 'rgba(255,255,255,0.52)')
-  band.addColorStop(0.46, 'rgba(255,255,255,0.16)')
-  band.addColorStop(1, 'rgba(255,255,255,0)')
-  ctx.fillStyle = band
-  ctx.fillRect(0, 0, 256, 320)
-
-  const glow = ctx.createRadialGradient(72, 54, 0, 72, 54, 190)
-  glow.addColorStop(0, 'rgba(255,255,255,0.24)')
-  glow.addColorStop(0.5, 'rgba(255,255,255,0.06)')
-  glow.addColorStop(1, 'rgba(255,255,255,0)')
-  ctx.fillStyle = glow
-  ctx.fillRect(0, 0, 256, 320)
-
+  const gradient = ctx.createLinearGradient(0, 0, 256, 320)
+  gradient.addColorStop(0, 'rgba(255,255,255,.72)')
+  gradient.addColorStop(0.42, 'rgba(255,255,255,.12)')
+  gradient.addColorStop(1, 'rgba(255,255,255,.5)')
+  ctx.strokeStyle = gradient
+  ctx.lineWidth = 9
+  ctx.shadowColor = 'rgba(255,255,255,.28)'
+  ctx.shadowBlur = 9
+  ctx.beginPath()
+  ctx.roundRect(7, 7, 242, 306, 22)
+  ctx.stroke()
+  ctx.shadowBlur = 0
+  ctx.strokeStyle = 'rgba(255,255,255,.24)'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.roundRect(14, 14, 228, 292, 18)
+  ctx.stroke()
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.anisotropy = 4
@@ -34,24 +36,24 @@ function createGlossTexture(): THREE.CanvasTexture {
 export class TileFactory {
   private readonly bodyGeometry: RoundedBoxGeometry
   private readonly faceGeometry: THREE.PlaneGeometry
-  private readonly glossGeometry: THREE.PlaneGeometry
-  private readonly glossMaterial: THREE.MeshBasicMaterial
+  private readonly rimGeometry: THREE.PlaneGeometry
+  private readonly rimMaterial: THREE.MeshBasicMaterial
   private readonly bodyMaterial: THREE.MeshPhysicalMaterial
-  private readonly faceMaterials = new Map<string, THREE.MeshStandardMaterial>()
+  private readonly faceMaterials = new Map<string, THREE.MeshPhysicalMaterial>()
   private readonly painter: FacePainter
-  private faceRoughness = 0.84
-  private faceReflectivity = 0.04
+  private faceRoughness = 0.58
+  private faceReflectivity = 0.1
 
   constructor(renderer: THREE.WebGLRenderer) {
     this.bodyGeometry = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 3, CORNER_R)
     this.faceGeometry = new THREE.PlaneGeometry(TILE_W * 0.94, TILE_D * 0.94)
     this.faceGeometry.rotateX(-Math.PI / 2)
-    this.glossGeometry = new THREE.PlaneGeometry(TILE_W * 0.94, TILE_D * 0.94)
-    this.glossGeometry.rotateX(-Math.PI / 2)
-    this.glossMaterial = new THREE.MeshBasicMaterial({
-      map: createGlossTexture(),
+    this.rimGeometry = new THREE.PlaneGeometry(TILE_W * 0.94, TILE_D * 0.94)
+    this.rimGeometry.rotateX(-Math.PI / 2)
+    this.rimMaterial = new THREE.MeshBasicMaterial({
+      map: createRimTexture(),
       transparent: true,
-      opacity: 0.04,
+      opacity: 0.03,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     })
@@ -85,11 +87,11 @@ export class TileFactory {
     face.userData.tileId = tile.id
     group.add(face)
 
-    const gloss = new THREE.Mesh(this.glossGeometry, this.glossMaterial)
-    gloss.position.y = TILE_H / 2 + 0.004
-    gloss.renderOrder = 2
-    gloss.userData.tileId = tile.id
-    group.add(gloss)
+    const rim = new THREE.Mesh(this.rimGeometry, this.rimMaterial)
+    rim.position.y = TILE_H / 2 + 0.004
+    rim.renderOrder = 2
+    rim.userData.tileId = tile.id
+    group.add(rim)
 
     return group
   }
@@ -104,42 +106,61 @@ export class TileFactory {
   }
 
   setFaceAppearance(roughness: number, reflectivity: number, lightIntensity = 1): void {
-    this.faceRoughness = Math.max(0.15, roughness * 0.9)
+    // Printed acrylic is smoother than the body; the recessed paint is
+    // rougher. A single face material cannot split those two without a
+    // roughness map, so keep the sheet glossy and let the bump map + clearcoat
+    // carry the engraved-paint read.
+    this.faceRoughness = Math.max(0.28, roughness * 0.82)
     this.faceReflectivity = reflectivity * 0.55
     for (const material of this.faceMaterials.values()) {
       material.roughness = this.faceRoughness
+      material.clearcoat = 0.18 + reflectivity * 0.52
+      material.clearcoatRoughness = 0.06 + roughness * 0.35
       material.envMapIntensity = this.faceReflectivity
       material.needsUpdate = true
     }
-    // The flat printed face does not catch a strong specular highlight from
-    // the studio environment, so add a soft reflected-light sheen. Its
-    // strength/intensity follows the same controls as the PBR material.
+    // Keep the center of the face untouched so the engraved ink stays crisp;
+    // the adjustable acrylic highlight lives on the rim only.
     const lightFactor = Math.min(1, Math.max(0.35, lightIntensity / 1.8))
-    this.glossMaterial.opacity = Math.min(
-      0.62,
-      reflectivity * (1 - roughness * 0.75) * 0.6 * lightFactor,
+    this.rimMaterial.opacity = Math.min(
+      0.5,
+      reflectivity * (1 - roughness * 0.72) * 0.42 * lightFactor,
     )
   }
 
-  getFaceMaterialState(): { type: string; roughness: number; envMapIntensity: number } | null {
+  getFaceMaterialState(): {
+    type: string
+    roughness: number
+    envMapIntensity: number
+    clearcoat: number
+  } | null {
     const material = this.faceMaterials.values().next().value as
-      | THREE.MeshStandardMaterial
+      | THREE.MeshPhysicalMaterial
       | undefined
     if (!material) return null
     return {
       type: material.type,
       roughness: material.roughness,
       envMapIntensity: material.envMapIntensity,
+      clearcoat: material.clearcoat,
     }
   }
 
-  private getFaceMaterial(kindId: string): THREE.MeshStandardMaterial {
+  private getFaceMaterial(kindId: string): THREE.MeshPhysicalMaterial {
     const existing = this.faceMaterials.get(kindId)
     if (existing) return existing
-    const material = new THREE.MeshStandardMaterial({
-      map: this.painter.get(kindId),
+    const map = this.painter.get(kindId)
+    const material = new THREE.MeshPhysicalMaterial({
+      map,
+      // The printed face is nearly white with dark ink. Its luminance is a
+      // usable height field: ink becomes a shallow recess and the acrylic
+      // body becomes the raised surface.
+      bumpMap: map,
+      bumpScale: 0.032,
       roughness: this.faceRoughness,
       metalness: 0,
+      clearcoat: 0.2,
+      clearcoatRoughness: 0.12,
       envMapIntensity: this.faceReflectivity,
     })
     this.faceMaterials.set(kindId, material)
@@ -149,9 +170,9 @@ export class TileFactory {
   dispose(): void {
     this.bodyGeometry.dispose()
     this.faceGeometry.dispose()
-    this.glossGeometry.dispose()
-    this.glossMaterial.map?.dispose()
-    this.glossMaterial.dispose()
+    this.rimGeometry.dispose()
+    this.rimMaterial.map?.dispose()
+    this.rimMaterial.dispose()
     this.bodyMaterial.dispose()
     for (const material of this.faceMaterials.values()) material.dispose()
     this.faceMaterials.clear()

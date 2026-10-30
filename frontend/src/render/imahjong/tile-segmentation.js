@@ -9,15 +9,15 @@
 import { HK_CONTOURS } from './hk-contours.js';
 
 export const LAYER_COLORS = {
-  ink: '#18231d',
-  red: '#c72c32',
-  green: '#175c3f',
+  ink: '#0d1411',
+  red: '#b0121a',
+  green: '#0a4a31',
 };
 
 const MASK_RGB = {
-  ink: [24, 35, 29],
-  red: [199, 44, 50],
-  green: [23, 92, 63],
+  ink: [13, 20, 17],
+  red: [176, 18, 26],
+  green: [10, 74, 49],
 };
 const SCALE = 3;
 const WIDTH = 120;

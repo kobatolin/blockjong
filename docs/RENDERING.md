@@ -236,20 +236,31 @@ const bodyMat = new THREE.MeshPhysicalMaterial({
 ```
 
 - 清漆层只保留很轻的一层，避免把牌体打成白色塑料高光。
-- 牌面是**受光照的印刷面**，使用 `MeshStandardMaterial`：
+- 牌面按“亚克力本体 + 阴刻填漆”处理：干净象牙白亚克力底，深色墨层，凹槽边缘有暗边；牌面使用受光的 `MeshPhysicalMaterial`：
 
 ```ts
-const faceMat = new THREE.MeshStandardMaterial({
+const faceMat = new THREE.MeshPhysicalMaterial({
   map: texture,
-  roughness: 0.84,
+  bumpMap: texture,       // ink is dark => recessed; acrylic is bright => raised
+  bumpScale: 0.032,
+  roughness: 0.58,
   metalness: 0,
-  envMapIntensity: 0.04,
+  clearcoat: 0.2,
+  clearcoatRoughness: 0.12,
+  envMapIntensity: 0.1,
 });
 ```
 
-- 不再使用 `MeshBasicMaterial`，也不设置 `emissive`；牌面会随主光/色温/曝光变化，不再“自发光”。
-- 牌面 `receiveShadow = true`，牌体边缘和相邻牌会自然压暗纸面。
-- 纸色/墨色的对比由 `facePainter` 直接控制；光照只做明暗和轻微环境反射，不会再提亮成白色塑料。
+- 不使用 `MeshBasicMaterial`，也不设置 `emissive`；牌面会随主光/色温/曝光变化，不再“自发光”。
+- `bumpMap` 用牌面本身的明度作为高度场：白色亚克力高、红/绿/黑墨层低，形成浅阴刻；纹样外圈在 `facePainter` 中加暗边，保证 144 张棋盘缩小后仍能读清。
+- 牌面 `receiveShadow = true`；纸色/墨色的对比由 `facePainter` 和深色填漆直接控制，光照只做明暗和轻微清漆反射。
+- 牌面边缘另有一层很淡的亚克力边缘高光，只覆盖边框、不覆盖中间刻痕，避免把字面洗白。
+
+参考工艺：亚克力牌体、0.3mm 左右激光阴刻后填漆；实时渲染用 bump/normal 近似阴刻，避免逐牌高模。
+
+- [Wetop：亚克力麻将牌与雕刻/填漆工艺流程](https://wetopacrylic.com/guide/mahjong-tile-engraving-laser-vs-uv-vs-cnc/)
+- [Booth：多边形阴刻麻将牌模型（V 形槽、0.4mm 平凹、法线阴影）](https://booth.pm/en/items/8910883)
+- [mahjong.wtf：用 bump map 模拟麻将阴刻的 Blender 流程](https://mahjong.wtf/?p=843)
 
 ### 6.3 牌面贴合
 
@@ -274,16 +285,16 @@ const faceMat = new THREE.MeshStandardMaterial({
 | --- | --- | --- | --- | --- |
 | 光照强度 | `lightIntensity` | 0.35–1.80 | 0.90 | 等比缩放主光/补光/半球光 |
 | 色温 | `lightTemperature` | 2700–6500 K | 4300 K | 主光黑体色；补光更冷、半球光略暖 |
-| 牌面粗糙度 | `tileRoughness` | 0.18–0.95 | 0.68 | 牌体 `roughness` + 牌面粗糙度 + 高光扩散 |
-| 反光强度 | `tileReflectivity` | 0–1.20 | 0.18 | `envMapIntensity` + clearcoat + 牌面柔和反射层 |
+| 反光强度 | `tileReflectivity` | 0–1.20 | 0.18 | `envMapIntensity` + clearcoat + 牌面边缘高光 |
+| 牌面粗糙度 | `tileRoughness` | 0.18–0.95 | 0.68 | 牌体/牌面粗糙度与边缘高光扩散 |
 
 实现要点：
 
 - 色温用近似黑体辐射公式转 `THREE.Color`，设置主光、补光与半球光颜色；
 - 光强影响灯光，并映射到 `toneMappingExposure`（0.38–1.00）；牌面是受光材质，会一起变亮/变暗；
-- 粗糙度/反光同时作用于 3D 牌体、牌面 `MeshStandardMaterial`，以及牌面上一层随反光/粗糙度变化的柔和反射层（平面本身很难在顶部视角下产生可见高光，反射层用于给出可靠的视觉反馈）；
+- 牌面用 `MeshPhysicalMaterial` + `bumpMap`（以深色墨层作为浅凹槽）、clearcoat 和边缘高光；中间刻痕区域不叠白色反光，保证缩小后填漆线条仍然清晰；
+- 粗糙度/反光同时作用于牌体和牌面；反光层只覆盖牌面边缘，不覆盖刻痕；
 - 默认值比旧版更柔和：主光 1.395、补光 0.216、半球光 0.306，牌体更哑光、环境反射更低；
-- 因牌面是受光材质，光强滑杆同时映射到 `toneMappingExposure`（0.38–1.00），调暗时牌面与牌体一起变暗；
 - “恢复默认光照”只重置四项外观参数，不动音效/画质/动效。
 
 ---
