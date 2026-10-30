@@ -73,7 +73,7 @@ function paintPaper(ctx: CanvasRenderingContext2D, baseColor: string): void {
 
 export function paintFaceCanvas(
   kindId: string,
-  emboss = 0.18,
+  emboss = 0.3,
   baseColor = PAPER_HI,
 ): HTMLCanvasElement {
   const kind = kindOf(kindId)
@@ -123,7 +123,7 @@ export function paintFaceCanvas(
 
 export function paintBumpCanvas(
   kindId: string,
-  emboss = 0.18,
+  emboss = 0.3,
   baseColor = PAPER_HI,
 ): HTMLCanvasElement {
   const source = paintFaceCanvas(kindId, emboss, baseColor)
@@ -154,7 +154,7 @@ export function paintBumpCanvas(
 
 export function paintNormalCanvas(
   kindId: string,
-  emboss = 0.18,
+  emboss = 0.3,
   baseColor = PAPER_HI,
 ): HTMLCanvasElement {
   const height = paintBumpCanvas(kindId, emboss, baseColor)
@@ -186,7 +186,7 @@ export function paintNormalCanvas(
 
 export function paintMetalnessCanvas(
   kindId: string,
-  emboss = 0.18,
+  emboss = 0.3,
   baseColor = PAPER_HI,
 ): HTMLCanvasElement {
   const height = paintBumpCanvas(kindId, emboss, baseColor)
@@ -213,7 +213,7 @@ export class FacePainter {
   private readonly normalCache = new Map<string, THREE.CanvasTexture>()
   private readonly metalnessCache = new Map<string, THREE.CanvasTexture>()
   private readonly maxAnisotropy: number
-  private emboss = 0.18
+  private emboss = 0.3
   private baseColor = PAPER_HI
 
   constructor(renderer: THREE.WebGLRenderer) {

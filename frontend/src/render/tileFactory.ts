@@ -212,9 +212,9 @@ export class TileFactory {
       // Dedicated blurred height -> normal map. normalScale is driven by the
       // “阴刻高度” slider; a plain bumpMap was too subtle on the flat top face.
       normalMap: this.painter.getNormal(kindId),
-      normalScale: new THREE.Vector2(0.54, 0.54),
+      normalScale: new THREE.Vector2(0.9, 0.9),
       metalnessMap: this.painter.getMetalnessMask(kindId),
-      metalness: 0,
+      metalness: 0.75,
       roughness: this.faceRoughness,
       clearcoat: 0.04,
       clearcoatRoughness: 0.35,

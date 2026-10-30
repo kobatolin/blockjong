@@ -1,6 +1,10 @@
 /** Three.js board view, picking and pointer interaction. Rules live in core/. */
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import type { BoardSnapshot, Dir, Tile } from '@/core/types'
 import {
   CELL_D,
@@ -88,8 +92,8 @@ export const DEFAULT_RENDER_TUNING: RenderTuning = {
   faceClearcoat: 0.0408,
   faceClearcoatRoughness: 0.522,
   faceEnvMapIntensity: 0.0216,
-  faceBumpScale: 0.18,
-  faceInkMetalness: 0,
+  faceBumpScale: 0.3,
+  faceInkMetalness: 0.75,
   rimOpacity: 0.0193,
   inkColor: '#0d1110',
   redColor: '#df2029',
@@ -264,6 +268,8 @@ export class GameRenderer {
   private readonly ghosts: THREE.Mesh[] = []
   private readonly ghostGroup = new THREE.Group()
   private readonly particles: ParticleBurst
+  private readonly composer: EffectComposer
+  private readonly ssaoPass: SSAOPass
 
   private animationFrame = 0
   private disposed = false
@@ -280,7 +286,7 @@ export class GameRenderer {
     red: '#df2029',
     green: '#114f37',
   }
-  private faceHeight = 0.18
+  private faceHeight = 0.3
   private faceColor = '#eeece8'
   private bodyColor = '#dee7da'
   private wallColor = '#b8a88e'
@@ -357,6 +363,15 @@ export class GameRenderer {
 
     this.tileFactory = new TileFactory(this.renderer)
 
+    this.composer = new EffectComposer(this.renderer)
+    this.composer.addPass(new RenderPass(this.scene, this.camera))
+    this.ssaoPass = new SSAOPass(this.scene, this.camera, 1, 1)
+    this.ssaoPass.kernelRadius = 10
+    this.ssaoPass.minDistance = 0.001
+    this.ssaoPass.maxDistance = 0.06
+    this.composer.addPass(this.ssaoPass)
+    this.composer.addPass(new OutputPass())
+
     this.haloTexture = createHaloTexture()
     this.selectionHalo = new THREE.Mesh(
       new THREE.PlaneGeometry(1.3, 1.58),
@@ -426,7 +441,7 @@ export class GameRenderer {
       this.particles.update(dt)
       this.recordFrame(dt)
       this.animateAmbient()
-      this.renderer.render(this.scene, this.camera)
+      this.composer.render()
     }
     this.animationFrame = requestAnimationFrame(tick)
   }
@@ -573,6 +588,7 @@ export class GameRenderer {
 
     this.particleCount = effective === 'high' ? 28 : effective === 'medium' ? 14 : 0
     this.particles.setCount(this.particleCount)
+    this.ssaoPass.enabled = effective !== 'low'
     this.resize()
   }
 
@@ -875,6 +891,7 @@ export class GameRenderer {
     this.ghostGeometry.dispose()
     this.ghostMaterial.dispose()
     this.particles.dispose()
+    this.composer.dispose()
     for (const marker of [...this.partnerMarkers, ...this.hintMarkers]) {
       marker.geometry.dispose()
       ;(marker.material as THREE.Material).dispose()
@@ -1298,6 +1315,8 @@ export class GameRenderer {
     const width = Math.max(1, this.container.clientWidth)
     const height = Math.max(1, this.container.clientHeight)
     this.renderer.setSize(width, height, false)
+    this.composer.setSize(width, height)
+    this.ssaoPass.setSize(width, height)
     this.camera.aspect = width / height
     this.camera.updateProjectionMatrix()
     this.fitCamera()
