@@ -7,6 +7,8 @@
 import {
   cloneBoardCells,
   countTiles,
+  listTiles,
+  moveTiles,
   removeTilesById,
   tileAt,
   tileById,
@@ -14,6 +16,8 @@ import {
 import { DIRS, findAnyMove, findAssistedTap, maxSlide, newVisiblePartners, resolveDrag, segment } from './drag'
 import type { DragResolution } from './drag'
 import { generateBoard } from './generate'
+import { adjacentEmptyCells, isAdjacentCell, ITEM_USES_PER_GAME } from './items'
+import type { CellRef } from './items'
 import { compatible, visible } from './rules'
 import type {
   BoardSnapshot,
@@ -59,6 +63,17 @@ export type TapResult =
       board: BoardSnapshot
     }
   | { kind: 'choiceCancelled'; moved: Tile[] }
+  | { kind: 'itemSelected'; tileId: number; cells: CellRef[] }
+  | {
+      kind: 'itemMoved'
+      tile: Tile
+      from: CellRef
+      to: CellRef
+      itemUsesLeft: number
+      board: BoardSnapshot
+    }
+  | { kind: 'itemCancelled' }
+  | { kind: 'itemRejected'; reason: 'not-adjacent' | 'no-space' | 'no-uses' }
 
 export type DragEndResult =
   | { kind: 'ignored' }
@@ -88,6 +103,7 @@ interface PendingChoice {
 interface HistoryEntry {
   board: BoardSnapshot
   moves: number
+  itemUses: number
 }
 
 function cloneBoardDeep(board: BoardSnapshot): BoardSnapshot {
@@ -105,6 +121,9 @@ export class GameSession {
   private moves = 0
   private history: HistoryEntry[] = []
   private pendingChoice: PendingChoice | null = null
+  private itemUses = ITEM_USES_PER_GAME
+  private itemActive = false
+  private itemTileId: number | null = null
 
   private constructor(init: SessionInit) {
     this.mode = init.mode
@@ -147,6 +166,25 @@ export class GameSession {
     return this.history.length
   }
 
+  get itemUsesLeft(): number {
+    return this.itemUses
+  }
+
+  get itemActiveNow(): boolean {
+    return this.itemActive
+  }
+
+  get itemPendingTileId(): number | null {
+    return this.itemTileId
+  }
+
+  /** Empty cells the chosen tile may move into; empty when no tile is chosen. */
+  itemTargets(): CellRef[] {
+    if (!this.itemActive || this.itemTileId === null) return []
+    const tile = tileById(this.board, this.itemTileId)
+    return tile ? adjacentEmptyCells(this.board, tile) : []
+  }
+
   getBoard(): BoardSnapshot {
     return cloneBoardDeep(this.board)
   }
@@ -169,10 +207,14 @@ export class GameSession {
       moves: this.moves,
       seed: this.seed,
       seedSource: this.seedSource,
+      itemUses: this.itemUses,
+      itemActive: this.itemActive,
+      itemTileId: this.itemTileId,
     }
   }
 
   tap(row: number, col: number): TapResult {
+    if (this.itemActive) return this.tapItem(row, col)
     if (this.pendingChoice) return this.resolveChoice(row, col)
     if (this.phase !== 'idle') return { kind: 'ignored' }
 
@@ -233,7 +275,7 @@ export class GameSession {
   }
 
   dragInfo(row: number, col: number): DragInfo | null {
-    if (this.pendingChoice || this.phase !== 'idle') return null
+    if (this.pendingChoice || this.itemActive || this.phase !== 'idle') return null
     const tile = tileAt(this.board, row, col)
     if (!tile) return null
 
@@ -245,14 +287,16 @@ export class GameSession {
   }
 
   dragPreview(tileId: number, dir: Dir, k: number): DragResolution | null {
-    if (this.pendingChoice || this.phase !== 'idle') return null
+    if (this.pendingChoice || this.itemActive || this.phase !== 'idle') return null
     const tile = tileById(this.board, tileId)
     if (!tile) return null
     return resolveDrag(this.board, tile, dir, k, this.selectedId)
   }
 
   dragEnd(tileId: number, dir: Dir, k: number): DragEndResult {
-    if (this.pendingChoice || this.phase !== 'idle') return { kind: 'ignored' }
+    if (this.pendingChoice || this.itemActive || this.phase !== 'idle') {
+      return { kind: 'ignored' }
+    }
     const tile = tileById(this.board, tileId)
     if (!tile) return { kind: 'ignored' }
 
@@ -365,19 +409,119 @@ export class GameSession {
     return moved
   }
 
+  /** Enter item mode: pick a tile, then one of its orthogonal empty cells. */
+  beginItemMove(): boolean {
+    if (this.pendingChoice || this.phase === 'won' || this.itemUses <= 0) return false
+    if (!this.itemMovable()) return false
+    this.itemActive = true
+    this.itemTileId = null
+    this.selectedId = null
+    return true
+  }
+
+  /** True when at least one tile has an orthogonal empty neighbour. */
+  itemMovable(): boolean {
+    return listTiles(this.board).some(
+      (tile) => adjacentEmptyCells(this.board, tile).length > 0,
+    )
+  }
+
+  cancelItemMove(): void {
+    this.itemActive = false
+    this.itemTileId = null
+  }
+
+  /**
+   * Taps while item mode is active. First tap chooses a tile with at least one
+   * empty neighbour; second tap on an orthogonal empty cell performs the move.
+   */
+  tapItem(row: number, col: number): TapResult {
+    if (!this.itemActive) return { kind: 'ignored' }
+    if (this.itemUses <= 0) {
+      this.cancelItemMove()
+      return { kind: 'itemRejected', reason: 'no-uses' }
+    }
+
+    const target = tileAt(this.board, row, col)
+
+    if (this.itemTileId === null) {
+      if (!target) {
+        this.cancelItemMove()
+        return { kind: 'itemCancelled' }
+      }
+      if (adjacentEmptyCells(this.board, target).length === 0) {
+        return { kind: 'itemRejected', reason: 'no-space' }
+      }
+      this.itemTileId = target.id
+      return {
+        kind: 'itemSelected',
+        tileId: target.id,
+        cells: adjacentEmptyCells(this.board, target),
+      }
+    }
+
+    const tile = tileById(this.board, this.itemTileId)
+    if (!tile) {
+      this.cancelItemMove()
+      return { kind: 'itemCancelled' }
+    }
+
+    if (target) {
+      if (target.id === tile.id) {
+        this.cancelItemMove()
+        return { kind: 'itemCancelled' }
+      }
+      if (adjacentEmptyCells(this.board, target).length === 0) {
+        return { kind: 'itemRejected', reason: 'no-space' }
+      }
+      this.itemTileId = target.id
+      return {
+        kind: 'itemSelected',
+        tileId: target.id,
+        cells: adjacentEmptyCells(this.board, target),
+      }
+    }
+
+    if (!isAdjacentCell(tile, { row, col })) {
+      return { kind: 'itemRejected', reason: 'not-adjacent' }
+    }
+
+    const from: CellRef = { row: tile.row, col: tile.col }
+    this.pushHistory()
+    this.board = moveTiles(this.board, [{ id: tile.id, row, col }])
+    this.itemUses -= 1
+    this.itemActive = false
+    this.itemTileId = null
+    this.selectedId = null
+    this.finishMove()
+
+    const moved = tileById(this.board, tile.id) ?? { ...tile, row, col }
+    return {
+      kind: 'itemMoved',
+      tile: moved,
+      from,
+      to: { row, col },
+      itemUsesLeft: this.itemUses,
+      board: this.snapshotBoard(),
+    }
+  }
+
   undo(): boolean {
     if (this.pendingChoice || this.phase === 'won') return false
     const entry = this.history.pop()
     if (!entry) return false
     this.board = entry.board
     this.moves = entry.moves
+    this.itemUses = entry.itemUses
+    this.itemActive = false
+    this.itemTileId = null
     this.phase = 'idle'
     this.selectedId = null
     return true
   }
 
   hint() {
-    if (this.pendingChoice || this.phase !== 'idle') return null
+    if (this.pendingChoice || this.itemActive || this.phase !== 'idle') return null
     return findAnyMove(this.board)
   }
 
@@ -389,6 +533,7 @@ export class GameSession {
     this.history.push({
       board: cloneBoardDeep(this.board),
       moves: this.moves,
+      itemUses: this.itemUses,
     })
     if (this.history.length > 50) this.history.shift()
   }

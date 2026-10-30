@@ -12,11 +12,13 @@ const props = defineProps<{
   seedLabel: string
   isCustom: boolean
   canUndo: boolean
+  itemUses: number
 }>()
 
 const emit = defineEmits<{
   resume: []
   undo: []
+  item: []
   restart: []
   'new-game': []
   'same-seed': []
@@ -45,7 +47,9 @@ const subtitle = computed(() => {
     case 'won':
       return '所有牌已消除，牌局完成。'
     case 'deadlock':
-      return '没有可点选的对子，也没有能通过拖动成对的操作。'
+      return props.itemUses > 0
+        ? '没有可点选的对子，也没有能通过拖动成对的操作。可用“移牌”挪开一张牌试试。'
+        : '没有可点选的对子，也没有能通过拖动成对的操作。'
     case 'pause':
       return '计时已暂停，棋盘不会变化。'
     case 'restart':
@@ -104,6 +108,14 @@ const subtitle = computed(() => {
         </div>
 
         <div v-else-if="props.kind === 'deadlock'" class="actions">
+          <button
+            v-if="props.itemUses > 0"
+            type="button"
+            class="btn"
+            @click="emit('item')"
+          >
+            移牌（{{ props.itemUses }} 次）
+          </button>
           <button
             type="button"
             class="btn btn-primary"
@@ -257,6 +269,7 @@ h2 {
 
 .actions .btn {
   flex: 1 1 140px;
+  white-space: nowrap;
 }
 
 .dialog-enter-active,

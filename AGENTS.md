@@ -8,7 +8,7 @@
 
 核心玩法：点选两张可配对且无阻挡的牌消除；或按住牌沿行/列拖动，带动连续牌串，落点成对则消除，否则整串回弹。
 
-- **当前状态：M0–M6 完成，可交付**。三种模式可完整游玩；`frontend/src/core` 有 56 个 Vitest 用例通过；菜单、种子、3D 对局、HUD、暂停/结算、本地记录、移动端布局、程序化音效、消除粒子、画质/音效设置、减少动效与首次引导均已接通；`scripts/dev.cmd` / `build.cmd` 与最终回归已完成。
+- **当前状态：M0–M6 完成，可交付**。三种模式可完整游玩；`frontend/src/core` 有 67 个 Vitest 用例通过；菜单、种子、3D 对局、HUD、暂停/结算、本地记录、移动端布局、程序化音效、消除粒子、画质/音效设置、减少动效、首次引导与“移牌”道具均已接通；`scripts/dev.cmd` / `build.cmd` 与最终回归已完成。
 - 开始实现前，按顺序阅读：
   1. `docs/GAME_RULES.md` —— 规则唯一权威来源；
   2. `docs/PROJECT_PLAN.md` —— 架构、模块、路线；
@@ -67,6 +67,7 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 - 死局：无点选对子且无任何可成对拖动；撤销上一步、重开本局或换一局，**不提供洗牌/棋盘重排**。不承诺任意随机布局必然可解。
 - 单张辅助：两张被挡同牌若可通过**单张牌**滑动成对，第二次点选直接滑动+消除；需要推动连续牌串时不触发，仍手动拖。
 - 多候选：拖动落点有多张可配对牌且无锚牌时，不自动选；高亮全部候选，点候选消除，点其它位置整串归位。
+- 道具“移牌”：每局 3 次，把一张牌移到**上下左右**相邻空格（对角不算）；不记步；入历史（撤销恢复牌位与次数）；死局可用；满盘无空格时不能用。
 - 种子：无符号 32 位；输入十进制或 `0x` 十六进制；同模式 + 同种子必须生成同一初始棋盘；“重开本局”沿用 seed 但标记为自定义，“换一局”换新 seed 并恢复随机资格；自定义种子不计入最佳记录。
 
 ## 已知坑
@@ -75,9 +76,10 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 - **pip/uv 缓存**同样受限：用 `--cache-dir` / `UV_CACHE_DIR` 指向项目内。
 - **pnpm 未安装**：不要引入 pnpm 工作流；统一 npm + `package-lock.json`。
 - **浏览器自动化**：普通沙箱无法启动 Edge（mojo IPC 被拒）；切到完整权限后可用 `playwright-core` + 本机 Edge 截图/点击/拖拽验收。不要假设 `npm run test` 在沙箱中可用，统一用 `test:sandbox`。
-- **`?debug=1`**：在 `window.__mahj` 暴露快照、hint、findDrag、assistMove、findChoice、cellToScreen、tap/drag、uiState（含 awaitingChoice）；仅用于验收，不参与正常玩法。`?debug=1` 会跳过首次三步引导。
+- **`?debug=1`**：在 `window.__mahj` 暴露快照、hint、findDrag、assistMove、findChoice、cellToScreen、tap/drag、itemUses/itemActive/itemTargets/itemToggle、uiState（含 awaitingChoice）；仅用于验收，不参与正常玩法。`?debug=1` 会跳过首次三步引导。
 - **音效**：`render/audio.ts` 用 Web Audio 程序化合成，AudioContext 必须由首次用户手势创建；设置里的静音会 `suspend/resume`，不要在模块顶层 new AudioContext。
 - **设置持久化**：`mahj.tutorial.v1` 与 `mahj.settings.v1` 存 localStorage；自动化测试用 `?debug=1` 跳过教程，或预先写入 storage。`settings.v1` 现包含 `lightIntensity` / `lightTemperature` / `tileRoughness` / `tileReflectivity`，加载时必须 clamp；`GameView` 监听四项并调用 `GameRenderer.setLighting()`。调试阶段 `LightingPanel.vue` 的 RENDER DEBUG 面板通过 `GameRenderer.setTuning()` 暴露 29 个高级滑杆和 6 个颜色（牌面底色/牌体/墙面/墨/红/绿），**不持久化**且覆盖基础设置；改参数映射时同步更新 `DEFAULT_RENDER_TUNING`。改牌面底色/颜色或阴刻高度会重新烘焙 42 张面纹理；必须保留 120ms 防抖。阴刻金属度靠 metalnessMap 只作用于填漆区域。墙面色同时驱动 hemisphere ground 和一个低强度 wall-bounce AmbientLight；只改 ground 对朝上的桌面/牌面几乎无效。点光强度上限 800、位置 X/Y/Z 可调，物理衰减 `decay=2`。
+- **道具“移牌”**：`core/items.ts` 只有纯函数（`adjacentEmptyCells` / `isAdjacentCell` / `ITEM_USES_PER_GAME`）；状态在 `GameSession`（`itemUses` / `itemActive` / `itemTileId`），入口是 `beginItemMove()` + `tapItem()`，`tap()` 在道具模式下自动转发。别在 `render/` 或 Vue 里判断相邻/空格。渲染用 `GameRenderer.setItemPreview()`（目标格冷青色）与 `playItemMove()`（`240ms` 滑动）；`undo()` 同时恢复棋盘与次数，历史条目存 `itemUses`。满盘（`itemMovable()` 为 false）时不允许进入道具模式，否则只能反复提示“四周没有空格”。
 - **画质档位**：`GameRenderer.setQuality()` 控制 DPR/阴影/粒子；低画质关闭阴影与粒子，自动档在平均帧时间 >24ms 时降到 medium。不要在渲染循环里反复重建 renderer。
 - **Node 24 + Vite 8**：满足 engines；但 **TypeScript 锁 5.9.x**，不要升到 7.x（`vue-tsc` 生态未验证）。
 - **Three.js 0.186 只支持 WebGL2**；不要写 WebGL1 回退渲染器。

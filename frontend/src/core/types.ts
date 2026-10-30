@@ -48,6 +48,12 @@ export interface GameSnapshot {
   moves: number;
   seed: number;
   seedSource: SeedSource;
+  /** Remaining "move one tile" item uses. */
+  itemUses: number;
+  /** True while the player is picking a tile / target cell for the item. */
+  itemActive: boolean;
+  /** Tile chosen inside item mode, waiting for an adjacent empty target. */
+  itemTileId: number | null;
 }
 
 export interface TilePair {

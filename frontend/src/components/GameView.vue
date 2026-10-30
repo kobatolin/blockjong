@@ -69,6 +69,10 @@ interface MahjDebugApi {
   } | null
   tap: (row: number, col: number) => void
   drag: (tileId: number, dir: Dir, k: number) => void
+  itemUses: () => number
+  itemActive: () => boolean
+  itemTargets: () => Array<{ row: number; col: number }>
+  itemToggle: () => void
   uiState: () => {
     busy: boolean
     dialog: DialogKind | null
@@ -182,13 +186,19 @@ function syncView(): void {
   partnerIds.value = partners
 
   canUndo.value = session.historySize > 0 && snap.phase !== 'won'
-  canHint.value = snap.phase === 'idle' && !busy.value
+  canHint.value = snap.phase === 'idle' && !busy.value && !snap.itemActive
   renderer?.setState(snap.selectedId, partners)
+  renderer?.setItemPreview(snap.itemTileId, session.itemTargets())
 
   if (snap.phase === 'won') {
     handleWon()
   } else if (snap.phase === 'deadlock') {
-    handleDeadlock()
+    if (!snap.itemActive) handleDeadlock()
+  } else if (dialog.value === 'deadlock') {
+    // The item (or undo) rescued the board; drop the deadlock dialog.
+    dialog.value = null
+    if (!busy.value) renderer?.setInteractive(true)
+    startTimer()
   }
 }
 
@@ -227,6 +237,46 @@ function handleTap(_tileId: number, row: number, col: number): void {
   else if (result.kind === 'choiceCancelled') sfx.revert()
   else if (result.kind === 'switched') sfx.revert()
   else if (result.kind === 'cleared' && result.hadSelection) sfx.click()
+
+  if (result.kind === 'itemSelected') {
+    sfx.select()
+    syncView()
+    return
+  }
+  if (result.kind === 'itemRejected') {
+    sfx.revert()
+    showToast(
+      result.reason === 'no-space'
+        ? '这张牌四周没有空格'
+        : result.reason === 'no-uses'
+          ? '移牌次数已用完'
+          : '只能移到上下左右相邻的空格',
+    )
+    syncView()
+    return
+  }
+  if (result.kind === 'itemCancelled') {
+    sfx.click()
+    syncView()
+    return
+  }
+  if (result.kind === 'itemMoved') {
+    sfx.item()
+    showToast(`已移牌，剩余 ${result.itemUsesLeft} 次`)
+    busy.value = true
+    renderer?.setInteractive(false)
+    if (!renderer) {
+      busy.value = false
+      syncView()
+      return
+    }
+    renderer.playItemMove(result.tile, result.to, result.board, () => {
+      busy.value = false
+      syncView()
+      renderer?.setInteractive(dialog.value === null)
+    })
+    return
+  }
   if (result.kind === 'choiceMatched' || result.kind === 'choiceCancelled') {
     awaitingChoice.value = false
     renderer?.clearChoice()
@@ -408,6 +458,12 @@ function handleDragCancel(): void {
 
 function handleUndo(): void {
   if (busy.value) return
+  if (snapshot.value.itemActive) {
+    session.cancelItemMove()
+    sfx.click()
+    syncView()
+    return
+  }
   if (awaitingChoice.value) {
     const moved = session.cancelChoice()
     awaitingChoice.value = false
@@ -441,6 +497,10 @@ function handleUndo(): void {
 
 function handleHint(): void {
   if (busy.value || dialog.value) return
+  if (snapshot.value.itemActive) {
+    showToast('先退出移牌模式再使用提示')
+    return
+  }
   if (awaitingChoice.value) {
     showToast('请先选择一张高亮牌，或点其它位置归位')
     return
@@ -469,8 +529,56 @@ function handleHint(): void {
   )
 }
 
+function toggleItem(): void {
+  if (busy.value || dialog.value) return
+  if (awaitingChoice.value) {
+    showToast('请先选择一张高亮牌，或点其它位置归位')
+    return
+  }
+  if (snapshot.value.itemActive) {
+    session.cancelItemMove()
+    sfx.click()
+    syncView()
+    return
+  }
+  if (!session.beginItemMove()) {
+    showToast(
+      session.itemUsesLeft === 0
+        ? '移牌次数已用完'
+        : !session.itemMovable()
+          ? '先消掉一对牌，才有空格可以移'
+          : '现在不能使用移牌',
+    )
+    return
+  }
+  sfx.click()
+  renderer?.setInteractive(true)
+  syncView()
+  showToast(`点一张牌，再点它上下左右的空格（剩余 ${session.itemUsesLeft} 次）`)
+}
+
+/** Deadlock dialog entry point: close it and enter item mode. */
+function useItemFromDeadlock(): void {
+  if (dialog.value !== 'deadlock') return
+  if (!session.beginItemMove()) {
+    showToast(
+      session.itemUsesLeft === 0 ? '移牌次数已用完' : '棋盘没有空格，移牌无法使用',
+    )
+    return
+  }
+  dialog.value = null
+  renderer?.setInteractive(true)
+  sfx.click()
+  syncView()
+  showToast(`点一张牌，再点它上下左右的空格（剩余 ${session.itemUsesLeft} 次）`)
+}
+
 function openPause(): void {
   if (busy.value || dialog.value || settingsOpen.value) return
+  if (snapshot.value.itemActive) {
+    session.cancelItemMove()
+    syncView()
+  }
   sfx.click()
   dialog.value = 'pause'
   pauseTimer()
@@ -492,6 +600,10 @@ function toggleSound(): void {
 
 function openSettings(): void {
   if (busy.value || settingsOpen.value || dialog.value || tutorialOpen.value) return
+  if (snapshot.value.itemActive) {
+    session.cancelItemMove()
+    syncView()
+  }
   settingsOpen.value = true
   pauseTimer()
   renderer?.setInteractive(false)
@@ -692,6 +804,9 @@ function onKeydown(event: KeyboardEvent): void {
   } else if (key === 'h') {
     handleHint()
     event.preventDefault()
+  } else if (key === 'i') {
+    toggleItem()
+    event.preventDefault()
   } else if (key === 'p') {
     openPause()
     event.preventDefault()
@@ -792,6 +907,10 @@ function installDebugBridge(): void {
     lightingState: () => renderer?.getLightingState() ?? null,
     tap: (row, col) => handleTap(-1, row, col),
     drag: (tileId, dir, k) => handleDragEnd(tileId, dir, k),
+    itemUses: () => session.itemUsesLeft,
+    itemActive: () => session.itemActiveNow,
+    itemTargets: () => session.itemTargets(),
+    itemToggle: () => toggleItem(),
     uiState: () => ({
       busy: busy.value,
       dialog: dialog.value,
@@ -858,10 +977,14 @@ onBeforeUnmount(() => {
       :is-custom="isCustom"
       :can-undo="canUndo"
       :can-hint="canHint"
+      :item-uses="snapshot.itemUses"
+      :item-active="snapshot.itemActive"
+      :can-item="snapshot.itemUses > 0 && snapshot.phase !== 'won' && !busy"
       :paused="!running"
       :sound-on="store.sound"
       @undo="handleUndo"
       @hint="handleHint"
+      @item="toggleItem"
       @restart="openRestart"
       @pause="openPause"
       @exit="exitGame"
@@ -878,8 +1001,10 @@ onBeforeUnmount(() => {
       :seed-label="seedLabel"
       :is-custom="isCustom"
       :can-undo="canUndo"
+      :item-uses="snapshot.itemUses"
       @resume="resumeGame"
       @undo="handleUndo"
+      @item="useItemFromDeadlock"
       @restart="handleRestartAction"
       @new-game="handleNewGame"
       @same-seed="handleSameSeed"

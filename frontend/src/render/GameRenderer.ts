@@ -280,6 +280,9 @@ export class GameRenderer {
   private readonly ghostMaterial: THREE.MeshBasicMaterial
   private readonly ghosts: THREE.Mesh[] = []
   private readonly ghostGroup = new THREE.Group()
+  private readonly itemMaterial: THREE.MeshBasicMaterial
+  private readonly itemCells: THREE.Mesh[] = []
+  private readonly itemGroup = new THREE.Group()
   private readonly particles: ParticleBurst
   private readonly composer: EffectComposer
   private readonly ssaoPass: SSAOPass
@@ -291,6 +294,7 @@ export class GameRenderer {
   private selectedId: number | null = null
   private partnerIds: number[] = []
   private hintIds: number[] = []
+  private itemTileId: number | null = null
   private quality: RenderQuality = 'auto'
   private autoDowngraded = false
   private reducedMotion = false
@@ -350,7 +354,7 @@ export class GameRenderer {
     this.renderer.domElement.setAttribute('role', 'application')
     this.renderer.domElement.setAttribute(
       'aria-label',
-      '3D 麻将棋盘。点选两张牌，或按住一张牌沿行或列拖动。',
+      '3D 麻将棋盘。点选两张牌，或按住一张牌沿行或列拖动；移牌道具可把一张牌挪到相邻空格。',
     )
     this.renderer.domElement.tabIndex = 0
     container.appendChild(this.renderer.domElement)
@@ -463,6 +467,18 @@ export class GameRenderer {
     })
     this.ghostGroup.position.y = 0.018
     this.scene.add(this.ghostGroup)
+
+    // Item targets use a cool tint so they read as "drop zones" rather than
+    // the warm gold used by drag previews.
+    this.itemMaterial = new THREE.MeshBasicMaterial({
+      color: 0x8fd8c8,
+      transparent: true,
+      opacity: 0.3,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+    this.itemGroup.position.y = 0.02
+    this.scene.add(this.itemGroup)
 
     this.particles = new ParticleBurst(this.scene)
 
@@ -701,6 +717,8 @@ export class GameRenderer {
     this.partnerIds = []
     this.hoverId = null
     this.hintIds = []
+    this.itemTileId = null
+    for (const mesh of this.itemCells) mesh.visible = false
     this.updateSelectionVisuals()
   }
 
@@ -760,6 +778,67 @@ export class GameRenderer {
     this.updateChoiceMarkers([])
     this.updateHintMarkers([])
     this.updatePartnerMarkers([])
+  }
+
+  /**
+   * Item mode visuals: lift/halo the chosen tile and mark its adjacent empty
+   * cells. Passing a null tile clears everything.
+   */
+  setItemPreview(
+    tileId: number | null,
+    cells: Array<{ row: number; col: number }>,
+  ): void {
+    this.itemTileId = tileId
+    while (this.itemCells.length < cells.length) {
+      const mesh = new THREE.Mesh(this.ghostGeometry, this.itemMaterial)
+      this.itemCells.push(mesh)
+      this.itemGroup.add(mesh)
+    }
+    this.itemCells.forEach((mesh, index) => {
+      const cell = cells[index]
+      mesh.visible = Boolean(cell)
+      if (cell) mesh.position.set(tileX(cell.col, this.cols), 0, tileZ(cell.row, this.rows))
+    })
+    this.updateSelectionVisuals()
+  }
+
+  /** Slide a single tile to an adjacent cell, then resync the board. */
+  playItemMove(
+    tile: Tile,
+    to: { row: number; col: number },
+    board: BoardSnapshot,
+    done: () => void,
+  ): void {
+    const view = this.tileViews.get(tile.id)
+    this.clearGhosts()
+    this.setItemPreview(null, [])
+
+    if (!view) {
+      this.setBoard(board)
+      done()
+      return
+    }
+
+    const fromX = view.group.position.x
+    const fromZ = view.group.position.z
+    const toX = tileX(to.col, this.cols)
+    const toZ = tileZ(to.row, this.rows)
+
+    this.tweens.add({
+      duration: this.reducedMotion ? 0.12 : 0.24,
+      ease: (t) => 1 - Math.pow(1 - t, 3),
+      onUpdate: (t) => {
+        view.group.position.x = fromX + (toX - fromX) * t
+        view.group.position.z = fromZ + (toZ - fromZ) * t
+        view.group.position.y =
+          TILE_H / 2 + (this.reducedMotion ? 0.08 : 0.2) * Math.sin(Math.PI * t)
+      },
+      onComplete: () => {
+        view.group.position.y = TILE_H / 2
+        this.setBoard(board)
+        done()
+      },
+    })
   }
 
   playAssistedMatch(
@@ -940,6 +1019,9 @@ export class GameRenderer {
     ;(this.dragPartnerMarker.material as THREE.Material).dispose()
     this.ghostGeometry.dispose()
     this.ghostMaterial.dispose()
+    this.itemMaterial.dispose()
+    for (const mesh of this.itemCells) this.itemGroup.remove(mesh)
+    this.scene.remove(this.itemGroup)
     this.particles.dispose()
     this.composer.dispose()
     for (const marker of [...this.partnerMarkers, ...this.hintMarkers]) {
@@ -1291,12 +1373,14 @@ export class GameRenderer {
   private updateSelectionVisuals(): void {
     if (this.drag) return
 
+    const focusId = this.itemTileId ?? this.selectedId
+
     for (const [id, view] of this.tileViews) {
-      const lift = id === this.selectedId ? 0.18 : id === this.hoverId ? 0.06 : 0
+      const lift = id === focusId ? 0.18 : id === this.hoverId ? 0.06 : 0
       view.group.position.y = TILE_H / 2 + lift
     }
 
-    const selected = this.selectedId !== null ? this.tileViews.get(this.selectedId) : null
+    const selected = focusId !== null ? this.tileViews.get(focusId) : null
     if (selected) {
       this.selectionHalo.visible = true
       this.selectionHalo.position.set(

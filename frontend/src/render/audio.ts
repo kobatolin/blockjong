@@ -36,6 +36,12 @@ export class Sfx {
     this.tone(165, 0.16, 'sawtooth', 0.022, 0, 120)
   }
 
+  /** Soft two-step "shift" for the move-one-tile item. */
+  item(): void {
+    this.tone(300, 0.12, 'sine', 0.03, 0, 380)
+    this.tone(460, 0.14, 'sine', 0.026, 0.07, 520)
+  }
+
   win(): void {
     const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5]
     notes.forEach((frequency, index) => {

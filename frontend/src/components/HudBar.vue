@@ -11,6 +11,9 @@ const props = defineProps<{
   isCustom: boolean
   canUndo: boolean
   canHint: boolean
+  itemUses: number
+  itemActive: boolean
+  canItem: boolean
   paused: boolean
   soundOn: boolean
 }>()
@@ -18,6 +21,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   undo: []
   hint: []
+  item: []
   restart: []
   pause: []
   exit: []
@@ -96,6 +100,21 @@ const time = () => formatTime(props.elapsedMs)
   </header>
 
   <div class="dock" aria-label="操作">
+    <button
+      type="button"
+      class="dock-btn item-btn"
+      :class="{ active: props.itemActive }"
+      :disabled="!props.canItem"
+      :aria-pressed="props.itemActive"
+      :title="`移牌：每局 ${props.itemUses} 次，把一张牌挪到相邻空格`"
+      @click="emit('item')"
+    >
+      <span class="dock-icon" aria-hidden="true">⇄</span>
+      <span class="dock-label">
+        移牌
+        <b class="item-count">{{ props.itemUses }}</b>
+      </span>
+    </button>
     <button
       type="button"
       class="dock-btn"
@@ -283,6 +302,33 @@ const time = () => formatTime(props.elapsedMs)
   color: var(--gold);
   font-size: 17px;
   line-height: 1.2;
+}
+
+.dock-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.item-count {
+  min-width: 14px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(217, 179, 108, 0.16);
+  color: var(--gold-soft);
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 14px;
+}
+
+.item-btn.active {
+  background: rgba(217, 179, 108, 0.16);
+  color: var(--ivory);
+  box-shadow: inset 0 0 0 1px rgba(217, 179, 108, 0.45);
+}
+
+.item-btn.active .dock-icon {
+  color: #f3d59a;
 }
 
 .pause-btn {
