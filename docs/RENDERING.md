@@ -201,7 +201,7 @@ key.shadow.normalBias = 0.02;
 ### 5.3 色调
 
 - 整体偏暖，但毛毡保持冷绿，形成冷暖对比。
-- 牌体暖象牙 `#d2c1a5`，牌面亚克力底 `#fcfaf3`；墨层用近黑/深红/深绿，避免在灯光下冲淡。
+- 牌体 `#dee7da`，牌面亚克力底 `#eeece8`；墨层 `#0d1110`、红 `#df2029`、绿 `#114f37`，避免在灯光下冲淡。
 - 牌面墨色整体加深（蓝 `#1b4f8f`、绿 `#196544`、红 `#94261f`、墨 `#1b2932`），保证缩小后仍可辨。
 - 高辨识度构图：字牌用 154px 大字；万子数字与“萬”都用红色；筒一为花瓣轮盘，筒二至九用大号同心点；索二至九用带竹节/红色中段的竹签；花牌同时画数字、字与植物图标。
 - 金色只用于选中/提示/粒子，不铺大面积。
@@ -226,7 +226,7 @@ const bodyGeo = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 3, CORNER_R);
 
 ```ts
 const bodyMat = new THREE.MeshPhysicalMaterial({
-  color: 0xd2c1a5,
+  color: 0xdee7da,
   roughness: 0.56,
   metalness: 0.0,
   clearcoat: 0.12,
@@ -281,9 +281,9 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 
 ### 6.5 可调光照与牌面材质
 
-`SettingsPanel` 保留四个基础滑杆，数值持久化到 `mahj.settings.v1`；`GameView` 监听 store 并调用 `GameRenderer.setLighting()`。调试阶段对局右侧固定显示 `LightingPanel.vue` 的 **RENDER DEBUG** 面板，复用同一渲染管线但不改结构，提供 24 个实时滑杆（灯光强度/色温/位置、曝光、牌体 PBR、牌面 PBR/清漆/反射、阴刻高度、边缘高光）和 **牌面底色/牌体颜色/墨色/红色/绿色** 五个颜色选择器；内部滚动、可折叠。高级参数覆盖基础设置，刷新后回到默认值。
+`SettingsPanel` 保留四个基础滑杆，数值持久化到 `mahj.settings.v1`；`GameView` 监听 store 并调用 `GameRenderer.setLighting()`。调试阶段对局右侧固定显示 `LightingPanel.vue` 的 **RENDER DEBUG** 面板，复用同一渲染管线但不改结构，提供 25 个实时滑杆（灯光强度/色温/位置、曝光、牌体 PBR、牌面 PBR/清漆/反射、阴刻高度/金属度、边缘高光）和 **牌面底色/牌体颜色/墙面反射/墨色/红色/绿色** 六个颜色选择器；内部滚动、可折叠。高级参数覆盖基础设置，刷新后回到默认值。
 
-改牌面底色/墨色/红/绿通过 `setLayerColors()` / `FacePainter.setBaseColor()` 更新轮廓绘制调色板与底色，`TileFactory.setFaceColor()` / `setFacePalette()` 重新生成 42 张牌面的 map/normalMap；改牌体颜色直接更新 `MeshPhysicalMaterial.color`；颜色和阴刻高度输入做了 120ms 防抖，避免反复重烘焙。
+改牌面底色/墨色/红/绿通过 `setLayerColors()` / `FacePainter.setBaseColor()` 更新轮廓绘制调色板与底色，`TileFactory.setFaceColor()` / `setFacePalette()` 重新生成 42 张牌面的 map/normalMap/metalnessMap；改牌体颜色直接更新 `MeshPhysicalMaterial.color`，改墙面色更新半球光 groundColor；颜色和阴刻高度输入做了 120ms 防抖，避免反复重烘焙。阴刻金属度通过只在填漆区域生效的 metalnessMap 控制，牌面底色保持非金属。
 
 | 控件 | store 字段 | 范围 | 默认 | 作用 |
 | --- | --- | --- | --- | --- |
@@ -298,7 +298,7 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 - 光强影响灯光，并映射到 `toneMappingExposure`（0.38–1.00）；牌面是受光材质，会一起变亮/变暗；
 - 牌面用 `MeshPhysicalMaterial` + normal map（由独立高程图生成）、随高度变化的凹槽暗边、clearcoat 和边缘高光；中间刻痕区域不叠白色反光，保证缩小后填漆线条仍然清晰；
 - 粗糙度/反光同时作用于牌体和牌面；反光层只覆盖牌面边缘，不覆盖刻痕；
-- 默认值比旧版更柔和：主光 1.395、补光 0.216、半球光 0.306，牌体更哑光、环境反射更低；
+- 默认值按室内顶部主光 + 暖色墙面/天光半球光 + 柔和正面补光设置：主光 1.395、补光 0.252、半球光 0.495、曝光 0.704；墙面 groundColor `#b8a88e`；
 - “恢复默认光照”只重置四项外观参数，不动音效/画质/动效。
 
 ---

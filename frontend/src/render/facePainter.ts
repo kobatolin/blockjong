@@ -13,7 +13,7 @@ const FACE_H = 320
 const DESIGN_W = 120
 const DESIGN_H = 160
 
-const PAPER_HI = '#fcfaf3'
+const PAPER_HI = '#eeece8'
 
 const V2_IDS: Record<string, string> = {
   'honor-east': 'wind-east',
@@ -73,7 +73,7 @@ function paintPaper(ctx: CanvasRenderingContext2D, baseColor: string): void {
 
 export function paintFaceCanvas(
   kindId: string,
-  emboss = 0.12,
+  emboss = 0.18,
   baseColor = PAPER_HI,
 ): HTMLCanvasElement {
   const kind = kindOf(kindId)
@@ -123,7 +123,7 @@ export function paintFaceCanvas(
 
 export function paintBumpCanvas(
   kindId: string,
-  emboss = 0.12,
+  emboss = 0.18,
   baseColor = PAPER_HI,
 ): HTMLCanvasElement {
   const source = paintFaceCanvas(kindId, emboss, baseColor)
@@ -154,7 +154,7 @@ export function paintBumpCanvas(
 
 export function paintNormalCanvas(
   kindId: string,
-  emboss = 0.12,
+  emboss = 0.18,
   baseColor = PAPER_HI,
 ): HTMLCanvasElement {
   const height = paintBumpCanvas(kindId, emboss, baseColor)
@@ -184,12 +184,36 @@ export function paintNormalCanvas(
   return canvas
 }
 
+export function paintMetalnessCanvas(
+  kindId: string,
+  emboss = 0.18,
+  baseColor = PAPER_HI,
+): HTMLCanvasElement {
+  const height = paintBumpCanvas(kindId, emboss, baseColor)
+  const source = height.getContext('2d')!.getImageData(0, 0, FACE_W, FACE_H)
+  const canvas = createCanvas(FACE_W, FACE_H)
+  const ctx = canvas.getContext('2d')!
+  const output = ctx.createImageData(FACE_W, FACE_H)
+  for (let i = 0; i < source.data.length; i += 4) {
+    // Height is high on acrylic and low in the groove; invert so the paint
+    // region is white (metalness mask) and the acrylic is black.
+    const value = Math.max(0, Math.min(255, (255 - source.data[i]) * 1.08))
+    output.data[i] = value
+    output.data[i + 1] = value
+    output.data[i + 2] = value
+    output.data[i + 3] = 255
+  }
+  ctx.putImageData(output, 0, 0)
+  return canvas
+}
+
 export class FacePainter {
   private readonly cache = new Map<string, THREE.CanvasTexture>()
   private readonly bumpCache = new Map<string, THREE.CanvasTexture>()
   private readonly normalCache = new Map<string, THREE.CanvasTexture>()
+  private readonly metalnessCache = new Map<string, THREE.CanvasTexture>()
   private readonly maxAnisotropy: number
-  private emboss = 0.12
+  private emboss = 0.18
   private baseColor = PAPER_HI
 
   constructor(renderer: THREE.WebGLRenderer) {
@@ -238,6 +262,20 @@ export class FacePainter {
     return texture
   }
 
+  getMetalnessMask(kindId: string): THREE.CanvasTexture {
+    const cached = this.metalnessCache.get(kindId)
+    if (cached) return cached
+
+    const texture = new THREE.CanvasTexture(
+      paintMetalnessCanvas(kindId, this.emboss, this.baseColor),
+    )
+    texture.colorSpace = THREE.NoColorSpace
+    texture.anisotropy = this.maxAnisotropy
+    texture.needsUpdate = true
+    this.metalnessCache.set(kindId, texture)
+    return texture
+  }
+
   setEmboss(value: number): void {
     this.emboss = value
     this.clearCaches()
@@ -252,9 +290,11 @@ export class FacePainter {
     for (const texture of this.cache.values()) texture.dispose()
     for (const texture of this.bumpCache.values()) texture.dispose()
     for (const texture of this.normalCache.values()) texture.dispose()
+    for (const texture of this.metalnessCache.values()) texture.dispose()
     this.cache.clear()
     this.bumpCache.clear()
     this.normalCache.clear()
+    this.metalnessCache.clear()
   }
 
   setPalette(palette: { ink: string; red: string; green: string }): void {
@@ -266,8 +306,10 @@ export class FacePainter {
     for (const texture of this.cache.values()) texture.dispose()
     for (const texture of this.bumpCache.values()) texture.dispose()
     for (const texture of this.normalCache.values()) texture.dispose()
+    for (const texture of this.metalnessCache.values()) texture.dispose()
     this.cache.clear()
     this.bumpCache.clear()
     this.normalCache.clear()
+    this.metalnessCache.clear()
   }
 }

@@ -25,11 +25,12 @@ const collapsed = ref(false)
 let colorTimer: ReturnType<typeof setTimeout> | null = null
 
 const colors: Array<{
-  key: 'inkColor' | 'redColor' | 'greenColor' | 'faceColor' | 'bodyColor'
+  key: 'inkColor' | 'redColor' | 'greenColor' | 'faceColor' | 'bodyColor' | 'wallColor'
   label: string
 }> = [
   { key: 'faceColor', label: '牌面底色' },
   { key: 'bodyColor', label: '牌体颜色' },
+  { key: 'wallColor', label: '墙面反射' },
   { key: 'inkColor', label: '墨色' },
   { key: 'redColor', label: '红色' },
   { key: 'greenColor', label: '绿色' },
@@ -75,6 +76,7 @@ const groups: Array<{ title: string; note?: string; params: ParamDef[] }> = [
       { key: 'faceClearcoatRoughness', label: '清漆粗糙度', min: 0, max: 1, step: 0.01, digits: 2 },
       { key: 'faceEnvMapIntensity', label: '牌面反射', min: 0, max: 1, step: 0.005, digits: 3 },
       { key: 'faceBumpScale', label: '阴刻高度', min: 0, max: 0.45, step: 0.001, digits: 3 },
+      { key: 'faceInkMetalness', label: '阴刻金属度', min: 0, max: 1, step: 0.01, digits: 2 },
       { key: 'rimOpacity', label: '边缘高光', min: 0, max: 0.8, step: 0.005, digits: 3 },
     ],
   },
@@ -114,7 +116,7 @@ function onInput(key: NumericTuningKey, event: Event): void {
 }
 
 function onColor(
-  key: 'inkColor' | 'redColor' | 'greenColor' | 'faceColor' | 'bodyColor',
+  key: 'inkColor' | 'redColor' | 'greenColor' | 'faceColor' | 'bodyColor' | 'wallColor',
   event: Event,
 ): void {
   tuning[key] = (event.target as HTMLInputElement).value

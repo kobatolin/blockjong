@@ -58,7 +58,7 @@ export class TileFactory {
       depthWrite: false,
     })
     this.bodyMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0xd2c1a5,
+      color: 0xdee7da,
       roughness: 0.56,
       metalness: 0,
       clearcoat: 0.12,
@@ -138,6 +138,7 @@ export class TileFactory {
     clearcoatRoughness: number
     envMapIntensity: number
     bumpScale: number
+    metalness: number
   }): void {
     this.faceRoughness = tuning.roughness
     this.faceReflectivity = tuning.envMapIntensity
@@ -147,6 +148,7 @@ export class TileFactory {
       material.clearcoatRoughness = tuning.clearcoatRoughness
       material.envMapIntensity = tuning.envMapIntensity
       material.normalScale.set(tuning.bumpScale * 3, tuning.bumpScale * 3)
+      material.metalness = tuning.metalness
       material.needsUpdate = true
     }
   }
@@ -157,6 +159,7 @@ export class TileFactory {
       const map = this.painter.get(kindId)
       material.map = map
       material.normalMap = this.painter.getNormal(kindId)
+      material.metalnessMap = this.painter.getMetalnessMask(kindId)
       material.needsUpdate = true
     }
   }
@@ -166,6 +169,7 @@ export class TileFactory {
     for (const [kindId, material] of this.faceMaterials) {
       material.map = this.painter.get(kindId)
       material.normalMap = this.painter.getNormal(kindId)
+      material.metalnessMap = this.painter.getMetalnessMask(kindId)
       material.needsUpdate = true
     }
   }
@@ -175,6 +179,7 @@ export class TileFactory {
     for (const [kindId, material] of this.faceMaterials) {
       material.map = this.painter.get(kindId)
       material.normalMap = this.painter.getNormal(kindId)
+      material.metalnessMap = this.painter.getMetalnessMask(kindId)
       material.normalScale.set(height * 3, height * 3)
       material.needsUpdate = true
     }
@@ -207,9 +212,10 @@ export class TileFactory {
       // Dedicated blurred height -> normal map. normalScale is driven by the
       // “阴刻高度” slider; a plain bumpMap was too subtle on the flat top face.
       normalMap: this.painter.getNormal(kindId),
-      normalScale: new THREE.Vector2(0.36, 0.36),
-      roughness: this.faceRoughness,
+      normalScale: new THREE.Vector2(0.54, 0.54),
+      metalnessMap: this.painter.getMetalnessMask(kindId),
       metalness: 0,
+      roughness: this.faceRoughness,
       clearcoat: 0.04,
       clearcoatRoughness: 0.35,
       envMapIntensity: this.faceReflectivity,

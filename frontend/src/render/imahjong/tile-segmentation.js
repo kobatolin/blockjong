@@ -9,9 +9,9 @@
 import { HK_CONTOURS } from './hk-contours.js';
 
 export const LAYER_COLORS = {
-  ink: '#0a0f0d',
-  red: '#982f34',
-  green: '#174633',
+  ink: '#0d1110',
+  red: '#df2029',
+  green: '#114f37',
 };
 
 function hexToRgb(hex) {
@@ -24,9 +24,9 @@ function hexToRgb(hex) {
 }
 
 const MASK_RGB = {
-  ink: [10, 15, 13],
-  red: [152, 47, 52],
-  green: [23, 70, 51],
+  ink: [13, 17, 16],
+  red: [223, 32, 41],
+  green: [17, 79, 55],
 };
 
 export function setLayerColors({ ink, red, green }) {

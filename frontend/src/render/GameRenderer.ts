@@ -55,28 +55,30 @@ export interface RenderTuning {
   faceClearcoatRoughness: number
   faceEnvMapIntensity: number
   faceBumpScale: number
+  faceInkMetalness: number
   rimOpacity: number
   inkColor: string
   redColor: string
   greenColor: string
   faceColor: string
   bodyColor: string
+  wallColor: string
 }
 
 export const DEFAULT_RENDER_TUNING: RenderTuning = {
-  exposure: 0.615,
+  exposure: 0.704,
   keyIntensity: 1.395,
-  fillIntensity: 0.216,
-  hemisphereIntensity: 0.306,
+  fillIntensity: 0.252,
+  hemisphereIntensity: 0.495,
   keyTemperature: 4300,
   fillTemperature: 5900,
   hemisphereTemperature: 4600,
-  keyX: -8,
-  keyY: 16,
-  keyZ: 10,
-  fillX: 9,
-  fillY: 8,
-  fillZ: -8,
+  keyX: -4,
+  keyY: 18,
+  keyZ: 8,
+  fillX: 7,
+  fillY: 7,
+  fillZ: 12,
   bodyRoughness: 0.68,
   bodyMetalness: 0,
   bodyClearcoat: 0.0696,
@@ -86,13 +88,15 @@ export const DEFAULT_RENDER_TUNING: RenderTuning = {
   faceClearcoat: 0.0408,
   faceClearcoatRoughness: 0.522,
   faceEnvMapIntensity: 0.0216,
-  faceBumpScale: 0.12,
+  faceBumpScale: 0.18,
+  faceInkMetalness: 0,
   rimOpacity: 0.0193,
-  inkColor: '#0a0f0d',
-  redColor: '#982f34',
-  greenColor: '#174633',
-  faceColor: '#fcfaf3',
-  bodyColor: '#d2c1a5',
+  inkColor: '#0d1110',
+  redColor: '#df2029',
+  greenColor: '#114f37',
+  faceColor: '#eeece8',
+  bodyColor: '#dee7da',
+  wallColor: '#b8a88e',
 }
 
 export interface DragStartInfo {
@@ -272,13 +276,14 @@ export class GameRenderer {
   private autoDowngraded = false
   private reducedMotion = false
   private facePalette = {
-    ink: '#0a0f0d',
-    red: '#982f34',
-    green: '#174633',
+    ink: '#0d1110',
+    red: '#df2029',
+    green: '#114f37',
   }
-  private faceHeight = 0.12
-  private faceColor = '#fcfaf3'
-  private bodyColor = '#d2c1a5'
+  private faceHeight = 0.18
+  private faceColor = '#eeece8'
+  private bodyColor = '#dee7da'
+  private wallColor = '#b8a88e'
   private particleCount = 28
   private frameSeconds = 0
   private frameSamples = 0
@@ -331,11 +336,11 @@ export class GameRenderer {
     room.dispose()
     pmrem.dispose()
 
-    this.hemisphere = new THREE.HemisphereLight(0xfff3dd, 0x0a241e, 0.34)
+    this.hemisphere = new THREE.HemisphereLight(0xfff6e9, 0xb8a88e, 0.55)
     this.scene.add(this.hemisphere)
 
-    this.keyLight = new THREE.DirectionalLight(0xffe9c9, 1.55)
-    this.keyLight.position.set(-8, 16, 10)
+    this.keyLight = new THREE.DirectionalLight(0xfff1dc, 1.55)
+    this.keyLight.position.set(-4, 18, 8)
     this.keyLight.castShadow = true
     this.keyLight.shadow.mapSize.set(2048, 2048)
     this.keyLight.shadow.camera.near = 1
@@ -345,8 +350,8 @@ export class GameRenderer {
     this.scene.add(this.keyLight)
     this.scene.add(this.keyLight.target)
 
-    const fill = new THREE.DirectionalLight(0x8fc7ff, 0.24)
-    fill.position.set(9, 8, -8)
+    const fill = new THREE.DirectionalLight(0xd8e2ef, 0.28)
+    fill.position.set(7, 7, 12)
     this.scene.add(fill)
     this.fillLight = fill
 
@@ -447,12 +452,12 @@ export class GameRenderer {
     const reflectivity = clamp(settings.reflectivity, 0, 1.2)
 
     this.keyLight.intensity = 1.55 * intensity
-    this.fillLight.intensity = 0.24 * intensity
-    this.hemisphere.intensity = 0.34 * intensity
+    this.fillLight.intensity = 0.28 * intensity
+    this.hemisphere.intensity = 0.55 * intensity
     // The printed face is lit, but a wider exposure range is needed so the
     // slider has a clearly visible effect on the near-white paper texture.
     this.renderer.toneMappingExposure =
-      0.38 + 0.62 * clamp((intensity - 0.35) / 1.45, 0, 1)
+      0.55 + 0.4 * clamp((intensity - 0.35) / 1.45, 0, 1)
 
     this.keyLight.color.copy(kelvinToColor(temperature))
     this.fillLight.color.copy(kelvinToColor(Math.min(9000, temperature + 1600)))
@@ -508,6 +513,7 @@ export class GameRenderer {
       clearcoatRoughness: tuning.faceClearcoatRoughness,
       envMapIntensity: tuning.faceEnvMapIntensity,
       bumpScale: tuning.faceBumpScale,
+      metalness: tuning.faceInkMetalness,
     })
     this.tileFactory.setRimOpacity(tuning.rimOpacity)
 
@@ -537,6 +543,11 @@ export class GameRenderer {
     if (tuning.bodyColor !== this.bodyColor) {
       this.bodyColor = tuning.bodyColor
       this.tileFactory.getBodyMaterial().color.set(tuning.bodyColor)
+    }
+
+    if (tuning.wallColor !== this.wallColor) {
+      this.wallColor = tuning.wallColor
+      this.hemisphere.groundColor.set(tuning.wallColor)
     }
   }
 

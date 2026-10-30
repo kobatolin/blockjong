@@ -77,7 +77,7 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 - **浏览器自动化**：普通沙箱无法启动 Edge（mojo IPC 被拒）；切到完整权限后可用 `playwright-core` + 本机 Edge 截图/点击/拖拽验收。不要假设 `npm run test` 在沙箱中可用，统一用 `test:sandbox`。
 - **`?debug=1`**：在 `window.__mahj` 暴露快照、hint、findDrag、assistMove、findChoice、cellToScreen、tap/drag、uiState（含 awaitingChoice）；仅用于验收，不参与正常玩法。`?debug=1` 会跳过首次三步引导。
 - **音效**：`render/audio.ts` 用 Web Audio 程序化合成，AudioContext 必须由首次用户手势创建；设置里的静音会 `suspend/resume`，不要在模块顶层 new AudioContext。
-- **设置持久化**：`mahj.tutorial.v1` 与 `mahj.settings.v1` 存 localStorage；自动化测试用 `?debug=1` 跳过教程，或预先写入 storage。`settings.v1` 现包含 `lightIntensity` / `lightTemperature` / `tileRoughness` / `tileReflectivity`，加载时必须 clamp；`GameView` 监听四项并调用 `GameRenderer.setLighting()`。调试阶段 `LightingPanel.vue` 的 RENDER DEBUG 面板通过 `GameRenderer.setTuning()` 暴露 24 个高级滑杆和 5 个颜色（牌面底色/牌体/墨/红/绿），**不持久化**且覆盖基础设置；改参数映射时同步更新 `DEFAULT_RENDER_TUNING`。改牌面底色/颜色或阴刻高度会重新烘焙 42 张面纹理；必须保留 120ms 防抖。
+- **设置持久化**：`mahj.tutorial.v1` 与 `mahj.settings.v1` 存 localStorage；自动化测试用 `?debug=1` 跳过教程，或预先写入 storage。`settings.v1` 现包含 `lightIntensity` / `lightTemperature` / `tileRoughness` / `tileReflectivity`，加载时必须 clamp；`GameView` 监听四项并调用 `GameRenderer.setLighting()`。调试阶段 `LightingPanel.vue` 的 RENDER DEBUG 面板通过 `GameRenderer.setTuning()` 暴露 25 个高级滑杆和 6 个颜色（牌面底色/牌体/墙面/墨/红/绿），**不持久化**且覆盖基础设置；改参数映射时同步更新 `DEFAULT_RENDER_TUNING`。改牌面底色/颜色或阴刻高度会重新烘焙 42 张面纹理；必须保留 120ms 防抖。阴刻金属度靠 metalnessMap 只作用于填漆区域。
 - **画质档位**：`GameRenderer.setQuality()` 控制 DPR/阴影/粒子；低画质关闭阴影与粒子，自动档在平均帧时间 >24ms 时降到 medium。不要在渲染循环里反复重建 renderer。
 - **Node 24 + Vite 8**：满足 engines；但 **TypeScript 锁 5.9.x**，不要升到 7.x（`vue-tsc` 生态未验证）。
 - **Three.js 0.186 只支持 WebGL2**；不要写 WebGL1 回退渲染器。
