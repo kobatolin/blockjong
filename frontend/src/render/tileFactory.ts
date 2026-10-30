@@ -151,6 +151,16 @@ export class TileFactory {
     }
   }
 
+  setFacePalette(palette: { ink: string; red: string; green: string }): void {
+    this.painter.setPalette(palette)
+    for (const [kindId, material] of this.faceMaterials) {
+      const map = this.painter.get(kindId)
+      material.map = map
+      material.bumpMap = map
+      material.needsUpdate = true
+    }
+  }
+
   getFaceMaterialState(): {
     type: string
     roughness: number

@@ -279,7 +279,9 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 
 ### 6.5 可调光照与牌面材质
 
-`SettingsPanel` 保留四个基础滑杆，数值持久化到 `mahj.settings.v1`；`GameView` 监听 store 并调用 `GameRenderer.setLighting()`。调试阶段对局右侧固定显示 `LightingPanel.vue` 的 **RENDER DEBUG** 面板，复用同一渲染管线但不改结构，提供 24 个实时参数（灯光强度/色温/位置、曝光、牌体 PBR、牌面 PBR/清漆/反射、bump 高度、边缘高光），内部滚动、可折叠；高级参数覆盖基础设置，刷新后回到默认值。
+`SettingsPanel` 保留四个基础滑杆，数值持久化到 `mahj.settings.v1`；`GameView` 监听 store 并调用 `GameRenderer.setLighting()`。调试阶段对局右侧固定显示 `LightingPanel.vue` 的 **RENDER DEBUG** 面板，复用同一渲染管线但不改结构，提供 24 个实时滑杆（灯光强度/色温/位置、曝光、牌体 PBR、牌面 PBR/清漆/反射、bump 高度、边缘高光）和 **墨色/红色/绿色** 三个填漆颜色选择器；内部滚动、可折叠。高级参数覆盖基础设置，刷新后回到默认值。
+
+颜色修改通过 `setLayerColors()` 更新轮廓绘制调色板，`FacePainter.setPalette()` 清除旧纹理缓存，`TileFactory.setFacePalette()` 重新生成 42 张牌面的 map/bumpMap；颜色输入做了 120ms 防抖，避免拖动取色器时反复重烘焙。
 
 | 控件 | store 字段 | 范围 | 默认 | 作用 |
 | --- | --- | --- | --- | --- |

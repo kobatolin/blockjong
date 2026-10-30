@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onBeforeUnmount, reactive, ref } from 'vue'
 import {
   DEFAULT_RENDER_TUNING,
   type RenderTuning,
 } from '@/render/GameRenderer'
 
+type NumericTuningKey = {
+  [K in keyof RenderTuning]: RenderTuning[K] extends number ? K : never
+}[keyof RenderTuning]
+
 interface ParamDef {
-  key: keyof RenderTuning
+  key: NumericTuningKey
   label: string
   min: number
   max: number
@@ -18,6 +22,13 @@ interface ParamDef {
 const emit = defineEmits<{ applyTuning: [RenderTuning] }>()
 const tuning = reactive<RenderTuning>({ ...DEFAULT_RENDER_TUNING })
 const collapsed = ref(false)
+let colorTimer: ReturnType<typeof setTimeout> | null = null
+
+const colors: Array<{ key: 'inkColor' | 'redColor' | 'greenColor'; label: string }> = [
+  { key: 'inkColor', label: '墨色' },
+  { key: 'redColor', label: '红色' },
+  { key: 'greenColor', label: '绿色' },
+]
 
 const groups: Array<{ title: string; note?: string; params: ParamDef[] }> = [
   {
@@ -69,16 +80,40 @@ function format(param: ParamDef): string {
   return `${value.toFixed(param.digits)}${param.unit ? ` ${param.unit}` : ''}`
 }
 
-function onInput(key: keyof RenderTuning, event: Event): void {
+function clearColorTimer(): void {
+  if (colorTimer !== null) {
+    clearTimeout(colorTimer)
+    colorTimer = null
+  }
+}
+
+function applyNow(): void {
+  clearColorTimer()
+  emit('applyTuning', { ...tuning })
+}
+
+function onInput(key: NumericTuningKey, event: Event): void {
   const value = Number((event.target as HTMLInputElement).value)
   tuning[key] = value
-  emit('applyTuning', { ...tuning })
+  applyNow()
+}
+
+function onColor(key: 'inkColor' | 'redColor' | 'greenColor', event: Event): void {
+  tuning[key] = (event.target as HTMLInputElement).value
+  clearColorTimer()
+  // Re-baking 42 face textures is much heavier than moving a material slider.
+  colorTimer = setTimeout(() => {
+    colorTimer = null
+    emit('applyTuning', { ...tuning })
+  }, 120)
 }
 
 function reset(): void {
   Object.assign(tuning, DEFAULT_RENDER_TUNING)
-  emit('applyTuning', { ...tuning })
+  applyNow()
 }
+
+onBeforeUnmount(clearColorTimer)
 </script>
 
 <template>
@@ -121,6 +156,25 @@ function reset(): void {
             :aria-label="param.label"
             @input="onInput(param.key, $event)"
           />
+        </label>
+      </section>
+
+      <section class="group">
+        <header class="group-head">
+          <strong>填漆颜色</strong>
+          <small>改色后重烘焙</small>
+        </header>
+        <label v-for="color in colors" :key="color.key" class="color-field">
+          <span>{{ color.label }}</span>
+          <span class="color-control">
+            <input
+              type="color"
+              :value="tuning[color.key]"
+              :aria-label="color.label"
+              @input="onColor(color.key, $event)"
+            />
+            <output>{{ tuning[color.key] }}</output>
+          </span>
         </label>
       </section>
 
@@ -272,6 +326,39 @@ header {
   margin: 0;
   accent-color: var(--gold);
   cursor: pointer;
+}
+
+.color-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.color-control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.color-control input[type='color'] {
+  width: 34px;
+  height: 22px;
+  padding: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.color-control output {
+  min-width: 54px;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  font-size: 9px;
+  text-align: right;
 }
 
 .reset {

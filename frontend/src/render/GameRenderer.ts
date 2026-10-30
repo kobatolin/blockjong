@@ -56,6 +56,9 @@ export interface RenderTuning {
   faceEnvMapIntensity: number
   faceBumpScale: number
   rimOpacity: number
+  inkColor: string
+  redColor: string
+  greenColor: string
 }
 
 export const DEFAULT_RENDER_TUNING: RenderTuning = {
@@ -83,6 +86,9 @@ export const DEFAULT_RENDER_TUNING: RenderTuning = {
   faceEnvMapIntensity: 0.0216,
   faceBumpScale: 0.045,
   rimOpacity: 0.0193,
+  inkColor: '#0a0f0d',
+  redColor: '#982f34',
+  greenColor: '#174633',
 }
 
 export interface DragStartInfo {
@@ -261,6 +267,11 @@ export class GameRenderer {
   private quality: RenderQuality = 'auto'
   private autoDowngraded = false
   private reducedMotion = false
+  private facePalette = {
+    ink: '#0a0f0d',
+    red: '#982f34',
+    green: '#174633',
+  }
   private particleCount = 28
   private frameSeconds = 0
   private frameSamples = 0
@@ -492,6 +503,19 @@ export class GameRenderer {
       bumpScale: tuning.faceBumpScale,
     })
     this.tileFactory.setRimOpacity(tuning.rimOpacity)
+
+    if (
+      tuning.inkColor !== this.facePalette.ink ||
+      tuning.redColor !== this.facePalette.red ||
+      tuning.greenColor !== this.facePalette.green
+    ) {
+      this.facePalette = {
+        ink: tuning.inkColor,
+        red: tuning.redColor,
+        green: tuning.greenColor,
+      }
+      this.tileFactory.setFacePalette(this.facePalette)
+    }
   }
 
   private effectiveQuality(): Exclude<RenderQuality, 'auto'> {

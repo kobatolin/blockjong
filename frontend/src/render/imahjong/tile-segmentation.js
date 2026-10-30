@@ -14,11 +14,29 @@ export const LAYER_COLORS = {
   green: '#174633',
 };
 
+function hexToRgb(hex) {
+  const value = hex.replace('#', '');
+  return [
+    parseInt(value.slice(0, 2), 16),
+    parseInt(value.slice(2, 4), 16),
+    parseInt(value.slice(4, 6), 16),
+  ];
+}
+
 const MASK_RGB = {
   ink: [10, 15, 13],
   red: [152, 47, 52],
   green: [23, 70, 51],
 };
+
+export function setLayerColors({ ink, red, green }) {
+  LAYER_COLORS.ink = ink;
+  LAYER_COLORS.red = red;
+  LAYER_COLORS.green = green;
+  MASK_RGB.ink = hexToRgb(ink);
+  MASK_RGB.red = hexToRgb(red);
+  MASK_RGB.green = hexToRgb(green);
+}
 const SCALE = 3;
 const WIDTH = 120;
 const HEIGHT = 160;

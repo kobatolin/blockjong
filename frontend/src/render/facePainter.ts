@@ -5,6 +5,7 @@
 import * as THREE from 'three'
 import { kindOf } from '@/core/kinds'
 import { createCanvas } from './canvas'
+import { LAYER_COLORS, setLayerColors } from './imahjong/tile-segmentation.js'
 import { drawMahjongFace } from './imahjong/tile-renderer.js'
 
 const FACE_W = 256
@@ -92,7 +93,7 @@ export function paintFaceCanvas(kindId: string): HTMLCanvasElement {
   if (kind.id === 'honor-white') {
     // I.Mahjong-HK expresses the white dragon through the tile frame, which
     // lives on the 2D body. Our 3D body has no printed frame, so draw it here.
-    ctx.strokeStyle = '#0d1411'
+    ctx.strokeStyle = LAYER_COLORS.ink
     ctx.lineWidth = 5
     ctx.beginPath()
     ctx.roundRect(30, 25, 59, 100, 4)
@@ -132,6 +133,12 @@ export class FacePainter {
     texture.needsUpdate = true
     this.cache.set(kindId, texture)
     return texture
+  }
+
+  setPalette(palette: { ink: string; red: string; green: string }): void {
+    setLayerColors(palette)
+    for (const texture of this.cache.values()) texture.dispose()
+    this.cache.clear()
   }
 
   dispose(): void {
