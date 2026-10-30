@@ -376,6 +376,10 @@ export class GameRenderer {
     this.keyLight.intensity = 1.55 * intensity
     this.fillLight.intensity = 0.24 * intensity
     this.hemisphere.intensity = 0.34 * intensity
+    // The printed face is unlit, so expose intensity as a gentle global
+    // exposure too; otherwise dimming the lights would not change the face.
+    this.renderer.toneMappingExposure =
+      0.72 + 0.2 * clamp((intensity - 0.35) / 1.45, 0, 1)
 
     this.keyLight.color.copy(kelvinToColor(temperature))
     this.fillLight.color.copy(kelvinToColor(Math.min(9000, temperature + 1600)))

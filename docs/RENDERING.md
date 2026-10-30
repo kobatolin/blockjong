@@ -276,6 +276,7 @@ const faceMat = new THREE.MeshBasicMaterial({ map: texture });
 - 光强只影响灯光，不改变牌面 `MeshBasicMaterial` 的印刷色；
 - 粗糙度/反光只作用于 3D 牌体，不改变已烘焙牌面；
 - 默认值比旧版更柔和：主光 1.395、补光 0.216、半球光 0.306，牌体更哑光、环境反射更低；
+- 因牌面是不受光的 `MeshBasicMaterial`，光强滑杆同时轻微映射到 `toneMappingExposure`（0.72–0.92），保证调暗时牌面也跟着变暗，而不是只有牌体变暗；
 - “恢复默认光照”只重置四项外观参数，不动音效/画质/动效。
 
 ---
