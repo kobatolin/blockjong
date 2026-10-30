@@ -7,7 +7,7 @@ import { findVisiblePartners } from '@/core/rules'
 import { formatSeed, formatSeedHex, randomSeed } from '@/core/seed'
 import { GameSession } from '@/core/session'
 import type { Dir, GameSnapshot, ModeId, SeedSource } from '@/core/types'
-import { GameRenderer, type DragPreviewInfo, type DragStartInfo, type GameRendererCallbacks, type RenderTuning } from '@/render/GameRenderer'
+import { GameRenderer, DEFAULT_RENDER_TUNING, type DragPreviewInfo, type DragStartInfo, type GameRendererCallbacks, type RenderTuning } from '@/render/GameRenderer'
 import { Sfx } from '@/render/audio'
 import { useGameStore } from '@/stores/game'
 import { buildShareUrl, copyText, writeUrlState } from '@/utils/url'
@@ -814,6 +814,9 @@ onMounted(() => {
     reflectivity: store.tileReflectivity,
   })
   renderer.setBoard(session.getBoard())
+  // Advanced defaults are applied after the board exists so every shared face
+  // material receives the exact clearcoat/roughness/reflection values.
+  renderer.setTuning({ ...DEFAULT_RENDER_TUNING })
   renderer.start()
   writeUrlState(session.mode, session.seed)
   syncView()
