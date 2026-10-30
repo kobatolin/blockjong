@@ -613,6 +613,21 @@ watch(
   () => store.motion,
   (value) => renderer?.setMotion(value),
 )
+watch(
+  () => [
+    store.lightIntensity,
+    store.lightTemperature,
+    store.tileRoughness,
+    store.tileReflectivity,
+  ] as const,
+  () =>
+    renderer?.setLighting({
+      intensity: store.lightIntensity,
+      temperature: store.lightTemperature,
+      roughness: store.tileRoughness,
+      reflectivity: store.tileReflectivity,
+    }),
+)
 
 function onVisibilityChange(): void {
   if (document.hidden) {
@@ -779,6 +794,12 @@ onMounted(() => {
   renderer = new GameRenderer(host.value, config.rows, config.cols, callbacks)
   renderer.setQuality(store.quality)
   renderer.setMotion(store.motion)
+  renderer.setLighting({
+    intensity: store.lightIntensity,
+    temperature: store.lightTemperature,
+    roughness: store.tileRoughness,
+    reflectivity: store.tileReflectivity,
+  })
   renderer.setBoard(session.getBoard())
   renderer.start()
   writeUrlState(session.mode, session.seed)

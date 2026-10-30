@@ -23,6 +23,13 @@ const DRAG_THRESHOLD = 6
 export type RenderQuality = 'auto' | 'high' | 'medium' | 'low'
 export type MotionSetting = 'auto' | 'reduced'
 
+export interface LightingSettings {
+  intensity: number
+  temperature: number
+  roughness: number
+  reflectivity: number
+}
+
 export interface DragStartInfo {
   ranges: Record<Dir, number>
   segmentIds: number[]
@@ -121,6 +128,33 @@ function createChoiceHaloTexture(): THREE.CanvasTexture {
   return texture
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+/** Approximate black-body color, used for the key/fill/hemisphere lights. */
+function kelvinToColor(kelvin: number): THREE.Color {
+  const temp = clamp(kelvin, 1000, 40000) / 100
+  let r: number
+  let g: number
+  let b: number
+  if (temp <= 66) {
+    r = 255
+    g = 99.4708025861 * Math.log(temp) - 161.1195681661
+    b = temp <= 19 ? 0 : 138.5177312231 * Math.log(temp - 10) - 305.0447927307
+  } else {
+    r = 329.698727446 * Math.pow(temp - 60, -0.1332047592)
+    g = 288.1221695283 * Math.pow(temp - 60, -0.0755148492)
+    b = 255
+  }
+  return new THREE.Color().setRGB(
+    clamp(r, 0, 255) / 255,
+    clamp(g, 0, 255) / 255,
+    clamp(b, 0, 255) / 255,
+    THREE.SRGBColorSpace,
+  )
+}
+
 export class GameRenderer {
   private readonly container: HTMLElement
   private readonly callbacks: GameRendererCallbacks
@@ -134,6 +168,8 @@ export class GameRenderer {
   private readonly resizeObserver: ResizeObserver
   private readonly environmentTexture: THREE.Texture
   private readonly keyLight: THREE.DirectionalLight
+  private readonly fillLight: THREE.DirectionalLight
+  private readonly hemisphere: THREE.HemisphereLight
   private readonly clock = new THREE.Clock()
   private readonly tweens = new TweenManager()
   private readonly raycaster = new THREE.Raycaster()
@@ -222,7 +258,8 @@ export class GameRenderer {
     room.dispose()
     pmrem.dispose()
 
-    this.scene.add(new THREE.HemisphereLight(0xfff3dd, 0x0a241e, 0.34))
+    this.hemisphere = new THREE.HemisphereLight(0xfff3dd, 0x0a241e, 0.34)
+    this.scene.add(this.hemisphere)
 
     this.keyLight = new THREE.DirectionalLight(0xffe9c9, 1.55)
     this.keyLight.position.set(-8, 16, 10)
@@ -238,6 +275,7 @@ export class GameRenderer {
     const fill = new THREE.DirectionalLight(0x8fc7ff, 0.24)
     fill.position.set(9, 8, -8)
     this.scene.add(fill)
+    this.fillLight = fill
 
     this.tileFactory = new TileFactory(this.renderer)
 
@@ -327,6 +365,28 @@ export class GameRenderer {
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
     this.reducedMotion = motion === 'reduced' || systemReduced
+  }
+
+  setLighting(settings: LightingSettings): void {
+    const intensity = clamp(settings.intensity, 0.35, 1.8)
+    const temperature = clamp(settings.temperature, 2700, 6500)
+    const roughness = clamp(settings.roughness, 0.18, 0.95)
+    const reflectivity = clamp(settings.reflectivity, 0, 1.2)
+
+    this.keyLight.intensity = 1.55 * intensity
+    this.fillLight.intensity = 0.24 * intensity
+    this.hemisphere.intensity = 0.34 * intensity
+
+    this.keyLight.color.copy(kelvinToColor(temperature))
+    this.fillLight.color.copy(kelvinToColor(Math.min(9000, temperature + 1600)))
+    this.hemisphere.color.copy(kelvinToColor(temperature + 300))
+
+    const material = this.tileFactory.getBodyMaterial()
+    material.roughness = roughness
+    material.envMapIntensity = reflectivity
+    material.clearcoat = 0.03 + reflectivity * 0.22
+    material.clearcoatRoughness = 0.35 + roughness * 0.45
+    material.needsUpdate = true
   }
 
   private effectiveQuality(): Exclude<RenderQuality, 'auto'> {

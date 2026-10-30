@@ -246,6 +246,8 @@ const faceMat = new THREE.MeshBasicMaterial({ map: texture });
 
 ### 6.3 牌面贴合
 
+
+
 - `PlaneGeometry(TILE_W * 0.96, TILE_D * 0.96)`，`rotateX(-Math.PI / 2)`。
 - 放在牌体顶面上方 `0.002`，避免 z-fighting。
 - 纹理 UV 方向：平面局部 `+Y` 旋转后指向 `-Z`（远端），保证文字从近端看是正的。
@@ -256,6 +258,25 @@ const faceMat = new THREE.MeshBasicMaterial({ map: texture });
 - `Raycaster` 与 `body` 求交（圆角盒比平面更贴合视觉）。
 - `body.userData.tileId = id`；命中后向上找到 `TileView`。
 - 每帧复用 `raycaster` 与 `Vector2`，不新建对象。
+
+### 6.5 可调光照与牌面材质
+
+`SettingsPanel` 增加四个实时滑杆，数值显示在滑杆右侧并持久化到 `mahj.settings.v1`；`GameView` 监听 store 并调用 `GameRenderer.setLighting()`。
+
+| 控件 | store 字段 | 范围 | 默认 | 作用 |
+| --- | --- | --- | --- | --- |
+| 光照强度 | `lightIntensity` | 0.35–1.80 | 0.90 | 等比缩放主光/补光/半球光 |
+| 色温 | `lightTemperature` | 2700–6500 K | 4300 K | 主光黑体色；补光更冷、半球光略暖 |
+| 牌面粗糙度 | `tileRoughness` | 0.18–0.95 | 0.68 | 牌体 `MeshPhysicalMaterial.roughness` |
+| 反光强度 | `tileReflectivity` | 0–1.20 | 0.18 | `envMapIntensity` + 轻量 clearcoat |
+
+实现要点：
+
+- 色温用近似黑体辐射公式转 `THREE.Color`，设置主光、补光与半球光颜色；
+- 光强只影响灯光，不改变牌面 `MeshBasicMaterial` 的印刷色；
+- 粗糙度/反光只作用于 3D 牌体，不改变已烘焙牌面；
+- 默认值比旧版更柔和：主光 1.395、补光 0.216、半球光 0.306，牌体更哑光、环境反射更低；
+- “恢复默认光照”只重置四项外观参数，不动音效/画质/动效。
 
 ---
 

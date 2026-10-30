@@ -18,13 +18,29 @@ export interface GameSettings {
   sound: boolean
   quality: Quality
   motion: MotionPreference
+  lightIntensity: number
+  lightTemperature: number
+  tileRoughness: number
+  tileReflectivity: number
 }
 
 const RECORDS_KEY = 'mahj.records.v1'
 const SETTINGS_KEY = 'mahj.settings.v1'
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
 function defaultSettings(): GameSettings {
-  return { sound: true, quality: 'auto', motion: 'auto' }
+  return {
+    sound: true,
+    quality: 'auto',
+    motion: 'auto',
+    lightIntensity: 0.9,
+    lightTemperature: 4300,
+    tileRoughness: 0.68,
+    tileReflectivity: 0.18,
+  }
 }
 
 function loadSettings(): GameSettings {
@@ -45,6 +61,29 @@ function loadSettings(): GameSettings {
     if (parsed.motion === 'auto' || parsed.motion === 'reduced') {
       settings.motion = parsed.motion
     }
+    const number = (
+      value: unknown,
+      fallback: number,
+      min: number,
+      max: number,
+    ): number =>
+      typeof value === 'number' && Number.isFinite(value)
+        ? clamp(value, min, max)
+        : fallback
+    settings.lightIntensity = number(parsed.lightIntensity, settings.lightIntensity, 0.35, 1.8)
+    settings.lightTemperature = number(
+      parsed.lightTemperature,
+      settings.lightTemperature,
+      2700,
+      6500,
+    )
+    settings.tileRoughness = number(parsed.tileRoughness, settings.tileRoughness, 0.18, 0.95)
+    settings.tileReflectivity = number(
+      parsed.tileReflectivity,
+      settings.tileReflectivity,
+      0,
+      1.2,
+    )
   } catch {
     // ignore corrupt storage
   }
@@ -129,17 +168,52 @@ export const useGameStore = defineStore('game', {
     setServerVersion(version: string) {
       this.serverVersion = version
     },
+    persistCurrent() {
+      persistSettings({
+        sound: this.sound,
+        quality: this.quality,
+        motion: this.motion,
+        lightIntensity: this.lightIntensity,
+        lightTemperature: this.lightTemperature,
+        tileRoughness: this.tileRoughness,
+        tileReflectivity: this.tileReflectivity,
+      })
+    },
     setSound(value: boolean) {
       this.sound = value
-      persistSettings({ sound: this.sound, quality: this.quality, motion: this.motion })
+      this.persistCurrent()
     },
     setQuality(value: Quality) {
       this.quality = value
-      persistSettings({ sound: this.sound, quality: this.quality, motion: this.motion })
+      this.persistCurrent()
     },
     setMotion(value: MotionPreference) {
       this.motion = value
-      persistSettings({ sound: this.sound, quality: this.quality, motion: this.motion })
+      this.persistCurrent()
+    },
+    setLightIntensity(value: number) {
+      this.lightIntensity = Math.min(1.8, Math.max(0.35, value))
+      this.persistCurrent()
+    },
+    setLightTemperature(value: number) {
+      this.lightTemperature = Math.min(6500, Math.max(2700, Math.round(value)))
+      this.persistCurrent()
+    },
+    setTileRoughness(value: number) {
+      this.tileRoughness = Math.min(0.95, Math.max(0.18, value))
+      this.persistCurrent()
+    },
+    setTileReflectivity(value: number) {
+      this.tileReflectivity = Math.min(1.2, Math.max(0, value))
+      this.persistCurrent()
+    },
+    resetAppearance() {
+      const defaults = defaultSettings()
+      this.lightIntensity = defaults.lightIntensity
+      this.lightTemperature = defaults.lightTemperature
+      this.tileRoughness = defaults.tileRoughness
+      this.tileReflectivity = defaults.tileReflectivity
+      this.persistCurrent()
     },
   },
 })

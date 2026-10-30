@@ -28,6 +28,26 @@ const motionOptions: Array<{ value: MotionPreference; label: string }> = [
   { value: 'auto', label: '跟随系统' },
   { value: 'reduced', label: '减少' },
 ]
+
+function inputValue(event: Event): number {
+  return Number((event.target as HTMLInputElement).value)
+}
+
+function onLightIntensity(event: Event): void {
+  store.setLightIntensity(inputValue(event))
+}
+
+function onLightTemperature(event: Event): void {
+  store.setLightTemperature(inputValue(event))
+}
+
+function onTileRoughness(event: Event): void {
+  store.setTileRoughness(inputValue(event))
+}
+
+function onTileReflectivity(event: Event): void {
+  store.setTileReflectivity(inputValue(event))
+}
 </script>
 
 <template>
@@ -108,6 +128,85 @@ const motionOptions: Array<{ value: MotionPreference; label: string }> = [
               {{ option.label }}
             </button>
           </div>
+        </div>
+
+        <div class="setting-block appearance-block">
+          <div class="setting-label">
+            <span>光照与牌面材质</span>
+            <small>实时生效；默认值已调柔和，可继续微调</small>
+          </div>
+
+          <div class="slider-field">
+            <div class="slider-head">
+              <label for="light-intensity">光照强度</label>
+              <output>{{ store.lightIntensity.toFixed(2) }}</output>
+            </div>
+            <input
+              id="light-intensity"
+              type="range"
+              min="0.35"
+              max="1.8"
+              step="0.01"
+              :value="store.lightIntensity"
+              aria-label="光照强度"
+              @input="onLightIntensity"
+            />
+          </div>
+
+          <div class="slider-field">
+            <div class="slider-head">
+              <label for="light-temperature">色温</label>
+              <output>{{ Math.round(store.lightTemperature) }} K</output>
+            </div>
+            <input
+              id="light-temperature"
+              type="range"
+              min="2700"
+              max="6500"
+              step="50"
+              :value="store.lightTemperature"
+              aria-label="色温"
+              @input="onLightTemperature"
+            />
+          </div>
+
+          <div class="slider-field">
+            <div class="slider-head">
+              <label for="tile-roughness">牌面粗糙度</label>
+              <output>{{ store.tileRoughness.toFixed(2) }}</output>
+            </div>
+            <input
+              id="tile-roughness"
+              type="range"
+              min="0.18"
+              max="0.95"
+              step="0.01"
+              :value="store.tileRoughness"
+              aria-label="牌面粗糙度"
+              @input="onTileRoughness"
+            />
+          </div>
+
+          <div class="slider-field">
+            <div class="slider-head">
+              <label for="tile-reflectivity">反光强度</label>
+              <output>{{ store.tileReflectivity.toFixed(2) }}</output>
+            </div>
+            <input
+              id="tile-reflectivity"
+              type="range"
+              min="0"
+              max="1.2"
+              step="0.01"
+              :value="store.tileReflectivity"
+              aria-label="反光强度"
+              @input="onTileReflectivity"
+            />
+          </div>
+
+          <button type="button" class="reset-appearance" @click="store.resetAppearance()">
+            恢复默认光照
+          </button>
         </div>
 
         <button type="button" class="btn btn-primary done" @click="emit('close')">
@@ -273,6 +372,63 @@ h2 {
 
 .hint {
   margin: 9px 0 0;
+}
+
+.appearance-block {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.slider-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.slider-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.slider-head label {
+  color: var(--ivory);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.slider-head output {
+  min-width: 58px;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  text-align: right;
+}
+
+.slider-field input[type='range'] {
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.reset-appearance {
+  align-self: flex-start;
+  padding: 5px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(217, 179, 108, 0.35);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.reset-appearance:hover {
+  color: var(--gold);
+  border-color: var(--gold);
 }
 
 .done {
