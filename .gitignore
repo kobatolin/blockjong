@@ -1,8 +1,17 @@
+# Generated but intentionally committed (do not add to this file):
+#   frontend/src/render/imahjong/hk-contours.js  - build input produced from the OTF
+#   docs/screenshots/*.png                       - documentation images referenced by README
+# Everything below is reproducible output, caches, or local state.
+
 # ---- Python ----
 __pycache__/
 *.py[cod]
+*.pyo
 *.egg-info/
 .pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
 .venv/
 backend/.venv/
 venv/
@@ -10,21 +19,31 @@ venv/
 # ---- Node / frontend build ----
 node_modules/
 frontend/dist/
-frontend/coverage/
+dist/
+build/
+coverage/
 frontend/.vite/
+.vite/
+frontend/test-results/
+frontend/playwright-report/
+frontend/.playwright/
+*.timestamp-*.mjs
+*.tsbuildinfo
 .npm-cache/
 .pip-cache/
 .uv-cache/
+
+# ---- Local state / tooling ----
 .tmp/
-*.tsbuildinfo
-
-# ---- Runtime config & logs ----
 config.json
+*.local
 *.log
-
-# ---- Build / packaging output ----
-dist/
-build/
+.eslintcache
+.stylelintcache
+.cache/
+*.orig
+*.rej
+*~
 
 # ---- OS / editors ----
 .DS_Store
