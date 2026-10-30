@@ -241,8 +241,8 @@ const bodyMat = new THREE.MeshPhysicalMaterial({
 ```ts
 const faceMat = new THREE.MeshPhysicalMaterial({
   map: texture,
-  bumpMap: texture,       // ink is dark => recessed; acrylic is bright => raised
-  bumpScale: 0.045,
+  normalMap: normalTexture,
+  normalScale: new THREE.Vector2(0.36, 0.36),
   roughness: 0.82,
   metalness: 0,
   clearcoat: 0.04,
@@ -252,7 +252,9 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 ```
 
 - 不使用 `MeshBasicMaterial`，也不设置 `emissive`；牌面会随主光/色温/曝光变化，不再“自发光”。
-- `bumpMap` 用牌面本身的明度作为高度场：白色亚克力高、红/绿/黑墨层低，形成浅阴刻；纹样外圈在 `facePainter` 中加暗边，保证 144 张棋盘缩小后仍能读清。
+- 用牌面明度生成**独立灰度高程图**，再生成 normal map；白色亚克力高、红/绿/黑墨层低，形成阴刻。`normalScale` 由“阴刻高度”控制。
+- 同时把阴刻高度用于烘焙**凹槽暗边**（blur/offset 随高度增大），保证在顶部视角和 45px 牌面下也有可见反馈。
+- 纹样外圈暗边和干净亚克力底保证 144 张棋盘缩小后仍能读清。
 - 牌面 `receiveShadow = true`；纸色/墨色的对比由 `facePainter` 和深色填漆直接控制，光照只做明暗和轻微清漆反射。
 - 牌面边缘另有一层很淡的亚克力边缘高光，只覆盖边框、不覆盖中间刻痕，避免把字面洗白。
 
@@ -279,9 +281,9 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 
 ### 6.5 可调光照与牌面材质
 
-`SettingsPanel` 保留四个基础滑杆，数值持久化到 `mahj.settings.v1`；`GameView` 监听 store 并调用 `GameRenderer.setLighting()`。调试阶段对局右侧固定显示 `LightingPanel.vue` 的 **RENDER DEBUG** 面板，复用同一渲染管线但不改结构，提供 24 个实时滑杆（灯光强度/色温/位置、曝光、牌体 PBR、牌面 PBR/清漆/反射、bump 高度、边缘高光）和 **墨色/红色/绿色** 三个填漆颜色选择器；内部滚动、可折叠。高级参数覆盖基础设置，刷新后回到默认值。
+`SettingsPanel` 保留四个基础滑杆，数值持久化到 `mahj.settings.v1`；`GameView` 监听 store 并调用 `GameRenderer.setLighting()`。调试阶段对局右侧固定显示 `LightingPanel.vue` 的 **RENDER DEBUG** 面板，复用同一渲染管线但不改结构，提供 24 个实时滑杆（灯光强度/色温/位置、曝光、牌体 PBR、牌面 PBR/清漆/反射、阴刻高度、边缘高光）和 **墨色/红色/绿色** 三个填漆颜色选择器；内部滚动、可折叠。高级参数覆盖基础设置，刷新后回到默认值。
 
-颜色修改通过 `setLayerColors()` 更新轮廓绘制调色板，`FacePainter.setPalette()` 清除旧纹理缓存，`TileFactory.setFacePalette()` 重新生成 42 张牌面的 map/bumpMap；颜色输入做了 120ms 防抖，避免拖动取色器时反复重烘焙。
+颜色修改通过 `setLayerColors()` 更新轮廓绘制调色板，`FacePainter.setPalette()` 清除旧纹理缓存，`TileFactory.setFacePalette()` 重新生成 42 张牌面的 map/normalMap；颜色和阴刻高度输入做了 120ms 防抖，避免拖动取色器/高度滑杆时反复重烘焙。
 
 | 控件 | store 字段 | 范围 | 默认 | 作用 |
 | --- | --- | --- | --- | --- |
@@ -294,7 +296,7 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 
 - 色温用近似黑体辐射公式转 `THREE.Color`，设置主光、补光与半球光颜色；
 - 光强影响灯光，并映射到 `toneMappingExposure`（0.38–1.00）；牌面是受光材质，会一起变亮/变暗；
-- 牌面用 `MeshPhysicalMaterial` + `bumpMap`（以深色墨层作为浅凹槽）、clearcoat 和边缘高光；中间刻痕区域不叠白色反光，保证缩小后填漆线条仍然清晰；
+- 牌面用 `MeshPhysicalMaterial` + normal map（由独立高程图生成）、随高度变化的凹槽暗边、clearcoat 和边缘高光；中间刻痕区域不叠白色反光，保证缩小后填漆线条仍然清晰；
 - 粗糙度/反光同时作用于牌体和牌面；反光层只覆盖牌面边缘，不覆盖刻痕；
 - 默认值比旧版更柔和：主光 1.395、补光 0.216、半球光 0.306，牌体更哑光、环境反射更低；
 - “恢复默认光照”只重置四项外观参数，不动音效/画质/动效。

@@ -69,7 +69,7 @@ const groups: Array<{ title: string; note?: string; params: ParamDef[] }> = [
       { key: 'faceClearcoat', label: '牌面清漆', min: 0, max: 1, step: 0.01, digits: 2 },
       { key: 'faceClearcoatRoughness', label: '清漆粗糙度', min: 0, max: 1, step: 0.01, digits: 2 },
       { key: 'faceEnvMapIntensity', label: '牌面反射', min: 0, max: 1, step: 0.005, digits: 3 },
-      { key: 'faceBumpScale', label: '阴刻高度', min: 0, max: 0.2, step: 0.001, digits: 3 },
+      { key: 'faceBumpScale', label: '阴刻高度', min: 0, max: 0.45, step: 0.001, digits: 3 },
       { key: 'rimOpacity', label: '边缘高光', min: 0, max: 0.8, step: 0.005, digits: 3 },
     ],
   },
@@ -95,6 +95,16 @@ function applyNow(): void {
 function onInput(key: NumericTuningKey, event: Event): void {
   const value = Number((event.target as HTMLInputElement).value)
   tuning[key] = value
+  if (key === 'faceBumpScale') {
+    // Repainting the 42 height/shadow textures is debounced; the normal scale
+    // is applied with the same delayed full tuning payload.
+    clearColorTimer()
+    colorTimer = setTimeout(() => {
+      colorTimer = null
+      emit('applyTuning', { ...tuning })
+    }, 120)
+    return
+  }
   applyNow()
 }
 

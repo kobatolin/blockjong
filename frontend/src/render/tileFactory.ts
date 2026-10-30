@@ -146,7 +146,7 @@ export class TileFactory {
       material.clearcoat = tuning.clearcoat
       material.clearcoatRoughness = tuning.clearcoatRoughness
       material.envMapIntensity = tuning.envMapIntensity
-      material.bumpScale = tuning.bumpScale
+      material.normalScale.set(tuning.bumpScale * 3, tuning.bumpScale * 3)
       material.needsUpdate = true
     }
   }
@@ -156,7 +156,17 @@ export class TileFactory {
     for (const [kindId, material] of this.faceMaterials) {
       const map = this.painter.get(kindId)
       material.map = map
-      material.bumpMap = map
+      material.normalMap = this.painter.getNormal(kindId)
+      material.needsUpdate = true
+    }
+  }
+
+  setFaceHeight(height: number): void {
+    this.painter.setEmboss(height)
+    for (const [kindId, material] of this.faceMaterials) {
+      material.map = this.painter.get(kindId)
+      material.normalMap = this.painter.getNormal(kindId)
+      material.normalScale.set(height * 3, height * 3)
       material.needsUpdate = true
     }
   }
@@ -185,11 +195,10 @@ export class TileFactory {
     const map = this.painter.get(kindId)
     const material = new THREE.MeshPhysicalMaterial({
       map,
-      // The printed face is nearly white with dark ink. Its luminance is a
-      // usable height field: ink becomes a shallow recess and the acrylic
-      // body becomes the raised surface.
-      bumpMap: map,
-      bumpScale: 0.045,
+      // Dedicated blurred height -> normal map. normalScale is driven by the
+      // “阴刻高度” slider; a plain bumpMap was too subtle on the flat top face.
+      normalMap: this.painter.getNormal(kindId),
+      normalScale: new THREE.Vector2(0.36, 0.36),
       roughness: this.faceRoughness,
       metalness: 0,
       clearcoat: 0.04,

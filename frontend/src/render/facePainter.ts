@@ -71,7 +71,7 @@ function paintPaper(ctx: CanvasRenderingContext2D): void {
   ctx.fillRect(0, 0, FACE_W, FACE_H)
 }
 
-export function paintFaceCanvas(kindId: string): HTMLCanvasElement {
+export function paintFaceCanvas(kindId: string, emboss = 0.12): HTMLCanvasElement {
   const kind = kindOf(kindId)
   const canvas = createCanvas(FACE_W, FACE_H)
   const ctx = canvas.getContext('2d')!
@@ -84,12 +84,14 @@ export function paintFaceCanvas(kindId: string): HTMLCanvasElement {
   ctx.save()
   ctx.translate((FACE_W - DESIGN_W * 2) / 2, 0)
   ctx.scale(2, 2)
-  // A shallow recess edge around the paint reads at game size and separates
-  // dark ink from the bright acrylic even when the tile is only a few pixels.
-  ctx.shadowColor = 'rgba(8, 13, 11, .5)'
-  ctx.shadowBlur = 0.85
-  ctx.shadowOffsetX = 0.25
-  ctx.shadowOffsetY = 0.25
+  // Height drives the recessed edge shadow as well as the normal map; this
+  // guarantees visible feedback even under the top-down studio light.
+  const blur = 0.15 + Math.max(0, emboss) * 9
+  const offset = Math.max(0, emboss) * 2.4
+  ctx.shadowColor = `rgba(8, 13, 11, ${0.45 + Math.min(0.35, emboss * 0.8)})`
+  ctx.shadowBlur = blur
+  ctx.shadowOffsetX = offset
+  ctx.shadowOffsetY = offset
   if (kind.id === 'honor-white') {
     // I.Mahjong-HK expresses the white dragon through the tile frame, which
     // lives on the 2D body. Our 3D body has no printed frame, so draw it here.
@@ -115,9 +117,67 @@ export function paintFaceCanvas(kindId: string): HTMLCanvasElement {
   return canvas
 }
 
+export function paintBumpCanvas(kindId: string, emboss = 0.12): HTMLCanvasElement {
+  const source = paintFaceCanvas(kindId, emboss)
+  const raw = createCanvas(FACE_W, FACE_H)
+  const rawCtx = raw.getContext('2d')!
+  rawCtx.drawImage(source, 0, 0)
+  const image = rawCtx.getImageData(0, 0, FACE_W, FACE_H)
+  const data = image.data
+  for (let i = 0; i < data.length; i += 4) {
+    const luminance = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
+    // White acrylic -> high, dark fill -> low; the curve widens the groove
+    // walls so the bump is visible on a 45px tile.
+    const height = Math.max(0, Math.min(255, ((luminance - 24) / 206) * 255))
+    data[i] = height
+    data[i + 1] = height
+    data[i + 2] = height
+    data[i + 3] = 255
+  }
+  rawCtx.putImageData(image, 0, 0)
+
+  const canvas = createCanvas(FACE_W, FACE_H)
+  const ctx = canvas.getContext('2d')!
+  ctx.filter = 'blur(1.35px)'
+  ctx.drawImage(raw, 0, 0)
+  ctx.filter = 'none'
+  return canvas
+}
+
+export function paintNormalCanvas(kindId: string, emboss = 0.12): HTMLCanvasElement {
+  const height = paintBumpCanvas(kindId, emboss)
+  const source = height.getContext('2d')!.getImageData(0, 0, FACE_W, FACE_H)
+  const canvas = createCanvas(FACE_W, FACE_H)
+  const ctx = canvas.getContext('2d')!
+  const output = ctx.createImageData(FACE_W, FACE_H)
+  const at = (x: number, y: number): number => {
+    const px = Math.max(0, Math.min(FACE_W - 1, x))
+    const py = Math.max(0, Math.min(FACE_H - 1, y))
+    return source.data[(py * FACE_W + px) * 4] / 255
+  }
+  const strength = 2.4
+  for (let y = 0; y < FACE_H; y += 1) {
+    for (let x = 0; x < FACE_W; x += 1) {
+      const dx = (at(x + 1, y) - at(x - 1, y)) * strength
+      const dy = (at(x, y + 1) - at(x, y - 1)) * strength
+      const length = Math.hypot(dx, dy, 1)
+      const offset = (y * FACE_W + x) * 4
+      output.data[offset] = ((-dx / length) * 0.5 + 0.5) * 255
+      output.data[offset + 1] = ((-dy / length) * 0.5 + 0.5) * 255
+      output.data[offset + 2] = (1 / length) * 255
+      output.data[offset + 3] = 255
+    }
+  }
+  ctx.putImageData(output, 0, 0)
+  return canvas
+}
+
 export class FacePainter {
   private readonly cache = new Map<string, THREE.CanvasTexture>()
+  private readonly bumpCache = new Map<string, THREE.CanvasTexture>()
+  private readonly normalCache = new Map<string, THREE.CanvasTexture>()
   private readonly maxAnisotropy: number
+  private emboss = 0.12
 
   constructor(renderer: THREE.WebGLRenderer) {
     this.maxAnisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy())
@@ -127,7 +187,7 @@ export class FacePainter {
     const cached = this.cache.get(kindId)
     if (cached) return cached
 
-    const texture = new THREE.CanvasTexture(paintFaceCanvas(kindId))
+    const texture = new THREE.CanvasTexture(paintFaceCanvas(kindId, this.emboss))
     texture.colorSpace = THREE.SRGBColorSpace
     texture.anisotropy = this.maxAnisotropy
     texture.needsUpdate = true
@@ -135,14 +195,56 @@ export class FacePainter {
     return texture
   }
 
+  getBump(kindId: string): THREE.CanvasTexture {
+    const cached = this.bumpCache.get(kindId)
+    if (cached) return cached
+
+    const texture = new THREE.CanvasTexture(paintBumpCanvas(kindId, this.emboss))
+    texture.colorSpace = THREE.NoColorSpace
+    texture.anisotropy = this.maxAnisotropy
+    texture.needsUpdate = true
+    this.bumpCache.set(kindId, texture)
+    return texture
+  }
+
+  getNormal(kindId: string): THREE.CanvasTexture {
+    const cached = this.normalCache.get(kindId)
+    if (cached) return cached
+
+    const texture = new THREE.CanvasTexture(paintNormalCanvas(kindId, this.emboss))
+    texture.colorSpace = THREE.NoColorSpace
+    texture.anisotropy = this.maxAnisotropy
+    texture.needsUpdate = true
+    this.normalCache.set(kindId, texture)
+    return texture
+  }
+
+  setEmboss(value: number): void {
+    this.emboss = value
+    for (const texture of this.cache.values()) texture.dispose()
+    for (const texture of this.bumpCache.values()) texture.dispose()
+    for (const texture of this.normalCache.values()) texture.dispose()
+    this.cache.clear()
+    this.bumpCache.clear()
+    this.normalCache.clear()
+  }
+
   setPalette(palette: { ink: string; red: string; green: string }): void {
     setLayerColors(palette)
     for (const texture of this.cache.values()) texture.dispose()
+    for (const texture of this.bumpCache.values()) texture.dispose()
+    for (const texture of this.normalCache.values()) texture.dispose()
     this.cache.clear()
+    this.bumpCache.clear()
+    this.normalCache.clear()
   }
 
   dispose(): void {
     for (const texture of this.cache.values()) texture.dispose()
+    for (const texture of this.bumpCache.values()) texture.dispose()
+    for (const texture of this.normalCache.values()) texture.dispose()
     this.cache.clear()
+    this.bumpCache.clear()
+    this.normalCache.clear()
   }
 }

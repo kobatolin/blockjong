@@ -84,7 +84,7 @@ export const DEFAULT_RENDER_TUNING: RenderTuning = {
   faceClearcoat: 0.0408,
   faceClearcoatRoughness: 0.522,
   faceEnvMapIntensity: 0.0216,
-  faceBumpScale: 0.045,
+  faceBumpScale: 0.12,
   rimOpacity: 0.0193,
   inkColor: '#0a0f0d',
   redColor: '#982f34',
@@ -272,6 +272,7 @@ export class GameRenderer {
     red: '#982f34',
     green: '#174633',
   }
+  private faceHeight = 0.12
   private particleCount = 28
   private frameSeconds = 0
   private frameSamples = 0
@@ -515,6 +516,11 @@ export class GameRenderer {
         green: tuning.greenColor,
       }
       this.tileFactory.setFacePalette(this.facePalette)
+    }
+
+    if (tuning.faceBumpScale !== this.faceHeight) {
+      this.faceHeight = tuning.faceBumpScale
+      this.tileFactory.setFaceHeight(this.faceHeight)
     }
   }
 
