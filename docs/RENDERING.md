@@ -298,7 +298,7 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 - 点光：暖白 `PointLight`，默认位置 `(3, 8, 5)`、强度 80、距离 30、`decay=2`；用于给清漆/圆角制造局部高光，强度上限 800，X/Y/Z 可在面板调整；
 - 使用 SSAO 产生牌与牌、牌与桌面的接触阴影。没有 AO 时，材质即使不是 emissive 也会因为缺少环境遮蔽而“浮起来、像自己在发光”。
 
-`SettingsPanel` 保留四个基础滑杆，数值持久化到 `mahj.settings.v1`；`GameView` 监听 store 并调用 `GameRenderer.setLighting()`。调试阶段对局右侧固定显示 `LightingPanel.vue` 的 **RENDER DEBUG** 面板（**默认隐藏**，点右缘“渲染”标签打开，可折叠/关闭），复用同一渲染管线但不改结构，提供 29 个实时滑杆（主光/补光/半球光/点光强度、色温与位置、曝光、牌体 PBR、牌面 PBR/清漆/反射、阴刻高度/金属度、边缘高光）和 **牌面底色/牌体颜色/墙面反射/墨色/红色/绿色** 六个颜色选择器；内部滚动。高级参数覆盖基础设置，刷新后回到默认值。
+`SettingsPanel` 保留四个基础滑杆，数值持久化到 `mahj.settings.v1`；`GameView` 监听 store 并调用 `GameRenderer.setLighting()`。调试面板由设置里的 **“调试渲染”开关**控制（默认关闭，持久化到同一份 settings）；开启后对局右缘出现“渲染”标签，点开 `LightingPanel.vue` 的 **RENDER DEBUG** 面板（可折叠/关闭），复用同一渲染管线但不改结构，提供 29 个实时滑杆（主光/补光/半球光/点光强度、色温与位置、曝光、牌体 PBR、牌面 PBR/清漆/反射、阴刻高度/金属度、边缘高光）和 **牌面底色/牌体颜色/墙面反射/墨色/红色/绿色** 六个颜色选择器；内部滚动。高级参数覆盖基础设置，刷新后回到默认值。
 
 改牌面底色/墨色/红/绿通过 `setLayerColors()` / `FacePainter.setBaseColor()` 更新轮廓绘制调色板与底色，`TileFactory.setFaceColor()` / `setFacePalette()` 重新生成 42 张牌面的 map/normalMap/metalnessMap；改牌体颜色直接更新 `MeshPhysicalMaterial.color`，改墙面色同时更新半球光 groundColor 和 wall-bounce ambient 的颜色；颜色和阴刻高度输入做了 120ms 防抖，避免反复重烘焙。阴刻金属度通过只在填漆区域生效的 metalnessMap 控制，牌面底色保持非金属。
 

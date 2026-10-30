@@ -21,6 +21,7 @@ export interface GameSettings {
   lightTemperature: number
   tileRoughness: number
   tileReflectivity: number
+  debugRender: boolean
 }
 
 const RECORDS_KEY = 'mahj.records.v1'
@@ -39,6 +40,7 @@ function defaultSettings(): GameSettings {
     lightTemperature: 4300,
     tileRoughness: 0.68,
     tileReflectivity: 0.18,
+    debugRender: false,
   }
 }
 
@@ -59,6 +61,9 @@ function loadSettings(): GameSettings {
     }
     if (parsed.motion === 'auto' || parsed.motion === 'reduced') {
       settings.motion = parsed.motion
+    }
+    if (typeof parsed.debugRender === 'boolean') {
+      settings.debugRender = parsed.debugRender
     }
     const number = (
       value: unknown,
@@ -169,6 +174,7 @@ export const useGameStore = defineStore('game', {
         lightTemperature: this.lightTemperature,
         tileRoughness: this.tileRoughness,
         tileReflectivity: this.tileReflectivity,
+        debugRender: this.debugRender,
       })
     },
     setSound(value: boolean) {
@@ -181,6 +187,10 @@ export const useGameStore = defineStore('game', {
     },
     setMotion(value: MotionPreference) {
       this.motion = value
+      this.persistCurrent()
+    },
+    setDebugRender(value: boolean) {
+      this.debugRender = value
       this.persistCurrent()
     },
     setLightIntensity(value: number) {

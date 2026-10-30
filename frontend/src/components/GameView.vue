@@ -1020,7 +1020,7 @@ onBeforeUnmount(() => {
       @cancel="cancelRestart"
     />
 
-    <LightingPanel @apply-tuning="applyDebugTuning" />
+    <LightingPanel v-if="store.debugRender" @apply-tuning="applyDebugTuning" />
 
     <SettingsPanel :open="settingsOpen" @close="closeSettings" />
 

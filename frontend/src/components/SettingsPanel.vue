@@ -130,6 +130,22 @@ function onTileReflectivity(event: Event): void {
           </div>
         </div>
 
+        <div class="setting-row">
+          <div class="setting-label">
+            <span>调试渲染</span>
+            <small>显示光照与材质调试入口，默认关闭</small>
+          </div>
+          <button
+            type="button"
+            class="switch"
+            :class="{ on: store.debugRender }"
+            :aria-pressed="store.debugRender"
+            @click="store.setDebugRender(!store.debugRender)"
+          >
+            {{ store.debugRender ? '开' : '关' }}
+          </button>
+        </div>
+
         <div class="setting-block appearance-block">
           <div class="setting-label">
             <span>光照与牌面材质</span>
