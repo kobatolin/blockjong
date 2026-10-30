@@ -236,13 +236,20 @@ const bodyMat = new THREE.MeshPhysicalMaterial({
 ```
 
 - 清漆层只保留很轻的一层，避免把牌体打成白色塑料高光。
-- 牌面是**不受光照的印刷面**，用 `MeshBasicMaterial` 直接显示已烘焙的纸色与墨色：
+- 牌面是**受光照的印刷面**，使用 `MeshStandardMaterial`：
 
 ```ts
-const faceMat = new THREE.MeshBasicMaterial({ map: texture });
+const faceMat = new THREE.MeshStandardMaterial({
+  map: texture,
+  roughness: 0.84,
+  metalness: 0,
+  envMapIntensity: 0.04,
+});
 ```
 
-这样主光只会塑造牌体边缘和阴影，不会再把牌面纸色二次提亮；牌面也不再接收阴影。纸色/墨色的对比由 `facePainter` 直接控制。
+- 不再使用 `MeshBasicMaterial`，也不设置 `emissive`；牌面会随主光/色温/曝光变化，不再“自发光”。
+- 牌面 `receiveShadow = true`，牌体边缘和相邻牌会自然压暗纸面。
+- 纸色/墨色的对比由 `facePainter` 直接控制；光照只做明暗和轻微环境反射，不会再提亮成白色塑料。
 
 ### 6.3 牌面贴合
 
@@ -273,8 +280,8 @@ const faceMat = new THREE.MeshBasicMaterial({ map: texture });
 实现要点：
 
 - 色温用近似黑体辐射公式转 `THREE.Color`，设置主光、补光与半球光颜色；
-- 光强只影响灯光，不改变牌面 `MeshBasicMaterial` 的印刷色；
-- 粗糙度/反光只作用于 3D 牌体，不改变已烘焙牌面；
+- 光强影响灯光，并轻微映射到 `toneMappingExposure`；牌面现在是受光材质，因此也会一起变亮/变暗；
+- 粗糙度/反光同时作用于 3D 牌体和牌面 `MeshStandardMaterial`（牌面粗糙度不低于 0.5，反光为设置值的 30%）；
 - 默认值比旧版更柔和：主光 1.395、补光 0.216、半球光 0.306，牌体更哑光、环境反射更低；
 - 因牌面是不受光的 `MeshBasicMaterial`，光强滑杆同时轻微映射到 `toneMappingExposure`（0.72–0.92），保证调暗时牌面也跟着变暗，而不是只有牌体变暗；
 - “恢复默认光照”只重置四项外观参数，不动音效/画质/动效。

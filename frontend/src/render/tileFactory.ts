@@ -9,8 +9,10 @@ export class TileFactory {
   private readonly bodyGeometry: RoundedBoxGeometry
   private readonly faceGeometry: THREE.PlaneGeometry
   private readonly bodyMaterial: THREE.MeshPhysicalMaterial
-  private readonly faceMaterials = new Map<string, THREE.MeshBasicMaterial>()
+  private readonly faceMaterials = new Map<string, THREE.MeshStandardMaterial>()
   private readonly painter: FacePainter
+  private faceRoughness = 0.84
+  private faceReflectivity = 0.04
 
   constructor(renderer: THREE.WebGLRenderer) {
     this.bodyGeometry = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 3, CORNER_R)
@@ -42,6 +44,7 @@ export class TileFactory {
     const faceMaterial = this.getFaceMaterial(tile.kindId)
     const face = new THREE.Mesh(this.faceGeometry, faceMaterial)
     face.position.y = TILE_H / 2 + 0.002
+    face.receiveShadow = true
     face.userData.tileId = tile.id
     group.add(face)
 
@@ -57,11 +60,24 @@ export class TileFactory {
     return this.bodyMaterial
   }
 
-  private getFaceMaterial(kindId: string): THREE.MeshBasicMaterial {
+  setFaceAppearance(roughness: number, reflectivity: number): void {
+    this.faceRoughness = Math.max(0.5, roughness)
+    this.faceReflectivity = reflectivity * 0.3
+    for (const material of this.faceMaterials.values()) {
+      material.roughness = this.faceRoughness
+      material.envMapIntensity = this.faceReflectivity
+      material.needsUpdate = true
+    }
+  }
+
+  private getFaceMaterial(kindId: string): THREE.MeshStandardMaterial {
     const existing = this.faceMaterials.get(kindId)
     if (existing) return existing
-    const material = new THREE.MeshBasicMaterial({
+    const material = new THREE.MeshStandardMaterial({
       map: this.painter.get(kindId),
+      roughness: this.faceRoughness,
+      metalness: 0,
+      envMapIntensity: this.faceReflectivity,
     })
     this.faceMaterials.set(kindId, material)
     return material

@@ -391,6 +391,7 @@ export class GameRenderer {
     material.clearcoat = 0.03 + reflectivity * 0.22
     material.clearcoatRoughness = 0.35 + roughness * 0.45
     material.needsUpdate = true
+    this.tileFactory.setFaceAppearance(roughness, reflectivity)
   }
 
   private effectiveQuality(): Exclude<RenderQuality, 'auto'> {
