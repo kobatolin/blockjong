@@ -261,6 +261,7 @@ export class GameRenderer {
   private readonly raycaster = new THREE.Raycaster()
   private readonly pointerNdc = new THREE.Vector2()
   private readonly boardPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -TILE_H)
+  private readonly tablePlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
   private readonly groundPoint = new THREE.Vector3()
   private readonly tileViews = new Map<number, TileView>()
   private readonly tileGroups: THREE.Group[] = []
@@ -1096,11 +1097,14 @@ export class GameRenderer {
     if (this.pointerDown || this.drag) return
     if (event.button !== 0 && event.pointerType === 'mouse') return
     const hit = this.pickTile(event)
+    const cell = hit
+      ? { row: hit.tile.row, col: hit.tile.col }
+      : this.cellFromPointer(event)
     event.preventDefault()
     this.pointerDown = {
       tileId: hit?.tile.id ?? -1,
-      row: hit?.tile.row ?? -1,
-      col: hit?.tile.col ?? -1,
+      row: cell?.row ?? -1,
+      col: cell?.col ?? -1,
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
@@ -1532,6 +1536,27 @@ export class GameRenderer {
       }
     }
     return null
+  }
+
+  /**
+   * Cell under the pointer even when it is empty. Tiles are picked directly;
+   * empty space is projected onto the table plane so taps on a gap between
+   * tiles still map to the cell the player aimed at (item targeting, clearing
+   * a selection, etc.).
+   */
+  private cellFromPointer(event: PointerEvent): { row: number; col: number } | null {
+    const rect = this.renderer.domElement.getBoundingClientRect()
+    this.pointerNdc.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    )
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera)
+    const point = this.raycaster.ray.intersectPlane(this.tablePlane, this.groundPoint)
+    if (!point) return null
+    const col = Math.round(point.x / CELL_W + (this.cols - 1) / 2)
+    const row = Math.round(point.z / CELL_D + (this.rows - 1) / 2)
+    if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return null
+    return { row, col }
   }
 
   private pointerToBoardPlane(event: PointerEvent): THREE.Vector3 | null {
