@@ -33,11 +33,11 @@
 | --- | --- | --- |
 | `CELL_W` | 1.00 | 格宽（X） |
 | `CELL_D` | 1.25 | 格深（Z）；麻将牌面为竖长比例 |
-| `TILE_W` | 0.92 | 牌宽 |
-| `TILE_D` | 1.15 | 牌长 |
+| `TILE_W` | 0.984 | 牌宽 |
+| `TILE_D` | 1.234 | 牌长 |
 | `TILE_H` | 0.34 | 牌厚 |
-| `CORNER_R` | 0.055 | 圆角半径 |
-| 间隙 | 0.08 / 0.10 | 牌与格边留白，形成缝 |
+| `CORNER_R` | 0.095 | 圆角半径 |
+| 间隙 | 0.016 / 0.016 | 牌与格边的左右/前后留白；靠圆角读缝，几乎贴合 |
 
 牌的落位：
 
@@ -220,11 +220,11 @@ key.shadow.normalBias = 0.02;
 ```ts
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-const bodyGeo = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 3, CORNER_R);
+const bodyGeo = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 4, CORNER_R);
 ```
 
 - 所有牌共享同一份 `bodyGeo` 与 `faceGeo`。
-- 圆角分段 3 足够；再高只会增加顶点数。
+- 圆角分段 4，半径 0.095；牌体放大到接近格距，牌与牌几乎贴合，靠圆角和倒角读缝。
 - 牌体不需要背面细节（不可见）。
 
 ### 6.2 材质
@@ -273,7 +273,7 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 
 
 
-- `PlaneGeometry(TILE_W * 0.96, TILE_D * 0.96)`，`rotateX(-Math.PI / 2)`。
+- `PlaneGeometry(TILE_W * 0.94, TILE_D * 0.94)`，`rotateX(-Math.PI / 2)`。
 - 放在牌体顶面上方 `0.002`，避免 z-fighting。
 - 纹理 UV 方向：平面局部 `+Y` 旋转后指向 `-Z`（远端），保证文字从近端看是正的。
 - 若出现上下颠倒，优先检查 `flipY` 与这里的旋转，而不是改 UV。

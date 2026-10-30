@@ -45,7 +45,7 @@ export class TileFactory {
   private faceReflectivity = 0.05
 
   constructor(renderer: THREE.WebGLRenderer) {
-    this.bodyGeometry = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 3, CORNER_R)
+    this.bodyGeometry = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 4, CORNER_R)
     this.faceGeometry = new THREE.PlaneGeometry(TILE_W * 0.94, TILE_D * 0.94)
     this.faceGeometry.rotateX(-Math.PI / 2)
     this.rimGeometry = new THREE.PlaneGeometry(TILE_W * 0.94, TILE_D * 0.94)
