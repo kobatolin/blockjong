@@ -35,12 +35,10 @@ function createRimTexture(): THREE.CanvasTexture {
 
 export class TileFactory {
   private readonly bodyGeometry: RoundedBoxGeometry
-  private readonly backGeometry: RoundedBoxGeometry
   private readonly faceGeometry: THREE.PlaneGeometry
   private readonly rimGeometry: THREE.PlaneGeometry
   private readonly rimMaterial: THREE.MeshBasicMaterial
   private readonly bodyMaterial: THREE.MeshPhysicalMaterial
-  private readonly backMaterial: THREE.MeshPhysicalMaterial
   private readonly faceMaterials = new Map<string, THREE.MeshPhysicalMaterial>()
   private readonly painter: FacePainter
   private faceRoughness = 0.82
@@ -48,16 +46,6 @@ export class TileFactory {
 
   constructor(renderer: THREE.WebGLRenderer) {
     this.bodyGeometry = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 4, CORNER_R)
-    // A thin blue cap over the back face. It sits slightly proud of the white
-    // body so the lower side band reads as the blue back in the reference.
-    const backHeight = TILE_H * 0.2
-    this.backGeometry = new RoundedBoxGeometry(
-      TILE_W * 1.003,
-      backHeight,
-      TILE_D * 1.003,
-      4,
-      0.035,
-    )
     this.faceGeometry = new THREE.PlaneGeometry(TILE_W * 0.94, TILE_D * 0.94)
     this.faceGeometry.rotateX(-Math.PI / 2)
     this.rimGeometry = new THREE.PlaneGeometry(TILE_W * 0.94, TILE_D * 0.94)
@@ -77,14 +65,6 @@ export class TileFactory {
       clearcoatRoughness: 0.6,
       envMapIntensity: 0.34,
     })
-    this.backMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x18a8df,
-      roughness: 0.4,
-      metalness: 0,
-      clearcoat: 0.24,
-      clearcoatRoughness: 0.34,
-      envMapIntensity: 0.35,
-    })
     this.painter = new FacePainter(renderer)
   }
 
@@ -99,13 +79,6 @@ export class TileFactory {
     body.receiveShadow = true
     body.userData.tileId = tile.id
     group.add(body)
-
-    const back = new THREE.Mesh(this.backGeometry, this.backMaterial)
-    back.position.y = -TILE_H / 2 + (TILE_H * 0.2) / 2
-    back.castShadow = true
-    back.receiveShadow = true
-    back.userData.tileId = tile.id
-    group.add(back)
 
     const faceMaterial = this.getFaceMaterial(tile.kindId)
     const face = new THREE.Mesh(this.faceGeometry, faceMaterial)
@@ -259,13 +232,11 @@ export class TileFactory {
 
   dispose(): void {
     this.bodyGeometry.dispose()
-    this.backGeometry.dispose()
     this.faceGeometry.dispose()
     this.rimGeometry.dispose()
     this.rimMaterial.map?.dispose()
     this.rimMaterial.dispose()
     this.bodyMaterial.dispose()
-    this.backMaterial.dispose()
     for (const material of this.faceMaterials.values()) material.dispose()
     this.faceMaterials.clear()
     this.painter.dispose()
