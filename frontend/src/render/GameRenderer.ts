@@ -246,6 +246,7 @@ export class GameRenderer {
   private readonly keyLight: THREE.DirectionalLight
   private readonly fillLight: THREE.DirectionalLight
   private readonly hemisphere: THREE.HemisphereLight
+  private readonly wallBounce: THREE.AmbientLight
   private readonly clock = new THREE.Clock()
   private readonly tweens = new TweenManager()
   private readonly raycaster = new THREE.Raycaster()
@@ -361,6 +362,10 @@ export class GameRenderer {
 
     this.hemisphere = new THREE.HemisphereLight(0xfff6e9, 0xb8a88e, 0.55)
     this.scene.add(this.hemisphere)
+    // A broad, low-intensity bounce from the walls. Hemisphere ground only
+    // affects downward-facing normals, so it is invisible on the tabletop.
+    this.wallBounce = new THREE.AmbientLight(0xb8a88e, 0.2)
+    this.scene.add(this.wallBounce)
 
     this.keyLight = new THREE.DirectionalLight(0xfff1dc, 1.55)
     this.keyLight.position.set(-4, 18, 8)
@@ -492,6 +497,8 @@ export class GameRenderer {
     this.keyLight.intensity = 1.55 * intensity
     this.fillLight.intensity = 0.28 * intensity
     this.hemisphere.intensity = 0.55 * intensity
+    this.wallBounce.color.set(this.wallColor)
+    this.wallBounce.intensity = 0.65 * intensity
     // The printed face is lit, but a wider exposure range is needed so the
     // slider has a clearly visible effect on the near-white paper texture.
     this.renderer.toneMappingExposure =
@@ -586,7 +593,9 @@ export class GameRenderer {
     if (tuning.wallColor !== this.wallColor) {
       this.wallColor = tuning.wallColor
       this.hemisphere.groundColor.set(tuning.wallColor)
+      this.wallBounce.color.set(tuning.wallColor)
     }
+    this.wallBounce.intensity = tuning.hemisphereIntensity * 1.3
   }
 
   private effectiveQuality(): Exclude<RenderQuality, 'auto'> {

@@ -289,13 +289,13 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 室内光按“顶部主光 + 墙面反弹 + 正面柔和补光”处理：
 
 - 主光：方向光，位置 `(-4, 18, 8)`，色温 4300K，保留阴影；
-- 墙面/天光：半球光，sky 暖白、ground `#b8a88e`，模拟室内墙面的漫反射；
+- 墙面/天光：半球光，sky 暖白、ground `#b8a88e`，模拟室内墙面的漫反射；另有低强度 `AmbientLight` 作为 wall bounce，因为半球光 ground 只影响朝下法线，桌面和牌面朝上时几乎看不到墙面色；
 - 补光：正面 `(7, 7, 12)`、5900K、低强度，避免暗部死黑；
 - 使用 SSAO 产生牌与牌、牌与桌面的接触阴影。没有 AO 时，材质即使不是 emissive 也会因为缺少环境遮蔽而“浮起来、像自己在发光”。
 
 `SettingsPanel` 保留四个基础滑杆，数值持久化到 `mahj.settings.v1`；`GameView` 监听 store 并调用 `GameRenderer.setLighting()`。调试阶段对局右侧固定显示 `LightingPanel.vue` 的 **RENDER DEBUG** 面板，复用同一渲染管线但不改结构，提供 25 个实时滑杆（灯光强度/色温/位置、曝光、牌体 PBR、牌面 PBR/清漆/反射、阴刻高度/金属度、边缘高光）和 **牌面底色/牌体颜色/墙面反射/墨色/红色/绿色** 六个颜色选择器；内部滚动、可折叠。高级参数覆盖基础设置，刷新后回到默认值。
 
-改牌面底色/墨色/红/绿通过 `setLayerColors()` / `FacePainter.setBaseColor()` 更新轮廓绘制调色板与底色，`TileFactory.setFaceColor()` / `setFacePalette()` 重新生成 42 张牌面的 map/normalMap/metalnessMap；改牌体颜色直接更新 `MeshPhysicalMaterial.color`，改墙面色更新半球光 groundColor；颜色和阴刻高度输入做了 120ms 防抖，避免反复重烘焙。阴刻金属度通过只在填漆区域生效的 metalnessMap 控制，牌面底色保持非金属。
+改牌面底色/墨色/红/绿通过 `setLayerColors()` / `FacePainter.setBaseColor()` 更新轮廓绘制调色板与底色，`TileFactory.setFaceColor()` / `setFacePalette()` 重新生成 42 张牌面的 map/normalMap/metalnessMap；改牌体颜色直接更新 `MeshPhysicalMaterial.color`，改墙面色同时更新半球光 groundColor 和 wall-bounce ambient 的颜色；颜色和阴刻高度输入做了 120ms 防抖，避免反复重烘焙。阴刻金属度通过只在填漆区域生效的 metalnessMap 控制，牌面底色保持非金属。
 
 参考：
 - [Chaos：室内 3D 渲染的灯光基础](https://blog.chaos.com/lighting-basics-for-3d-rendering-in-enscape)（区域光、自然反弹、暖/冷色温、HDRI）
