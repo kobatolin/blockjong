@@ -8,10 +8,8 @@ import { createCanvas } from './canvas'
 import { LAYER_COLORS, setLayerColors } from './imahjong/tile-segmentation.js'
 import { drawMahjongFace } from './imahjong/tile-renderer.js'
 
-const FACE_W = 256
+const FACE_W = 240
 const FACE_H = 320
-const DESIGN_W = 120
-const DESIGN_H = 160
 
 const PAPER_HI = '#eeece8'
 
@@ -71,6 +69,29 @@ function paintPaper(ctx: CanvasRenderingContext2D, baseColor: string): void {
   ctx.fillRect(0, 0, FACE_W, FACE_H)
 }
 
+const centeringOffset = new Map<string, { dx: number; dy: number }>()
+
+function alphaBounds(
+  canvas: HTMLCanvasElement,
+): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  const ctx = canvas.getContext('2d')!
+  const { data } = ctx.getImageData(0, 0, FACE_W, FACE_H)
+  let minX = FACE_W
+  let minY = FACE_H
+  let maxX = -1
+  let maxY = -1
+  for (let y = 0; y < FACE_H; y += 1) {
+    for (let x = 0; x < FACE_W; x += 1) {
+      if (data[(y * FACE_W + x) * 4 + 3] <= 200) continue
+      if (x < minX) minX = x
+      if (y < minY) minY = y
+      if (x > maxX) maxX = x
+      if (y > maxY) maxY = y
+    }
+  }
+  return maxX < 0 ? null : { minX, minY, maxX, maxY }
+}
+
 export function paintFaceCanvas(
   kindId: string,
   emboss = 0.3,
@@ -84,39 +105,63 @@ export function paintFaceCanvas(
   const faceId = FACE_IDS[kind.id]
   if (!faceId) return canvas
 
-  // 120×160 design space -> 240×320 content, centered with an 8px acrylic edge.
-  ctx.save()
-  ctx.translate((FACE_W - DESIGN_W * 2) / 2, 0)
-  ctx.scale(2, 2)
+  // Draw the engraving on its own layer first. The I.Mahjong-HK contours were
+  // authored around the old 2D tile frame, so their ink box is a few pixels
+  // high; measure the solid paint and composite it centered on the 3D face.
+  const art = createCanvas(FACE_W, FACE_H)
+  const actx = art.getContext('2d')!
+  // 120×160 design space -> 240×320 texture; the 3D face is 3:4, so this maps
+  // 1:1 without the horizontal squash a 256×320 (4:5) texture would introduce.
+  actx.save()
+  actx.scale(2, 2)
   // Height drives the recessed edge shadow as well as the normal map; this
   // guarantees visible feedback even under the top-down studio light.
   const blur = 0.15 + Math.max(0, emboss) * 9
   const offset = Math.max(0, emboss) * 2.4
-  ctx.shadowColor = `rgba(8, 13, 11, ${0.45 + Math.min(0.35, emboss * 0.8)})`
-  ctx.shadowBlur = blur
-  ctx.shadowOffsetX = offset
-  ctx.shadowOffsetY = offset
+  actx.shadowColor = `rgba(8, 13, 11, ${0.45 + Math.min(0.35, emboss * 0.8)})`
+  actx.shadowBlur = blur
+  actx.shadowOffsetX = offset
+  actx.shadowOffsetY = offset
   if (kind.id === 'honor-white') {
     // I.Mahjong-HK expresses the white dragon through the tile frame, which
     // lives on the 2D body. Our 3D body has no printed frame, so draw it here.
-    ctx.strokeStyle = LAYER_COLORS.ink
-    ctx.lineWidth = 5
-    ctx.beginPath()
-    ctx.roundRect(30, 25, 59, 100, 4)
-    ctx.stroke()
-    ctx.lineWidth = 2.2
-    ctx.beginPath()
-    ctx.roundRect(37, 32, 45, 86, 2)
-    ctx.stroke()
-    ctx.strokeStyle = 'rgba(13, 20, 17, .4)'
-    ctx.lineWidth = 0.8
-    ctx.beginPath()
-    ctx.roundRect(42, 37, 35, 76, 1)
-    ctx.stroke()
+    actx.strokeStyle = LAYER_COLORS.ink
+    actx.lineWidth = 5
+    actx.beginPath()
+    actx.roundRect(30, 25, 59, 100, 4)
+    actx.stroke()
+    actx.lineWidth = 2.2
+    actx.beginPath()
+    actx.roundRect(37, 32, 45, 86, 2)
+    actx.stroke()
+    actx.strokeStyle = 'rgba(13, 20, 17, .4)'
+    actx.lineWidth = 0.8
+    actx.beginPath()
+    actx.roundRect(42, 37, 35, 76, 1)
+    actx.stroke()
   } else {
-    drawMahjongFace(ctx, faceId)
+    drawMahjongFace(actx, faceId)
   }
-  ctx.restore()
+  actx.restore()
+
+  // The solid paint bbox only depends on the contours, so measure each kind
+  // once; bump/normal/metalness bakes reuse the same centering.
+  let center = centeringOffset.get(kind.id)
+  if (!center) {
+    const bounds = alphaBounds(art)
+    center = bounds
+      ? {
+          dx: Math.round(
+            (FACE_W - (bounds.maxX - bounds.minX + 1)) / 2 - bounds.minX,
+          ),
+          dy: Math.round(
+            (FACE_H - (bounds.maxY - bounds.minY + 1)) / 2 - bounds.minY,
+          ),
+        }
+      : { dx: 0, dy: 0 }
+    centeringOffset.set(kind.id, center)
+  }
+  ctx.drawImage(art, center.dx, center.dy)
 
   return canvas
 }

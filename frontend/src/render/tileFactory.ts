@@ -7,10 +7,10 @@ import { CORNER_R, TILE_D, TILE_H, TILE_W, tileX, tileZ } from './layout'
 import { FacePainter } from './facePainter'
 
 function createRimTexture(): THREE.CanvasTexture {
-  const canvas = createCanvas(256, 320)
+  const canvas = createCanvas(240, 320)
   const ctx = canvas.getContext('2d')!
-  ctx.clearRect(0, 0, 256, 320)
-  const gradient = ctx.createLinearGradient(0, 0, 256, 320)
+  ctx.clearRect(0, 0, 240, 320)
+  const gradient = ctx.createLinearGradient(0, 0, 240, 320)
   gradient.addColorStop(0, 'rgba(255,255,255,.72)')
   gradient.addColorStop(0.42, 'rgba(255,255,255,.12)')
   gradient.addColorStop(1, 'rgba(255,255,255,.5)')
@@ -19,13 +19,13 @@ function createRimTexture(): THREE.CanvasTexture {
   ctx.shadowColor = 'rgba(255,255,255,.28)'
   ctx.shadowBlur = 9
   ctx.beginPath()
-  ctx.roundRect(7, 7, 242, 306, 22)
+  ctx.roundRect(7, 7, 226, 306, 22)
   ctx.stroke()
   ctx.shadowBlur = 0
   ctx.strokeStyle = 'rgba(255,255,255,.24)'
   ctx.lineWidth = 2
   ctx.beginPath()
-  ctx.roundRect(14, 14, 228, 292, 18)
+  ctx.roundRect(14, 14, 212, 292, 18)
   ctx.stroke()
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace

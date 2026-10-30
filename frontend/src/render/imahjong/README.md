@@ -11,8 +11,9 @@ This directory contains the V3 tile-face pipeline used by `facePainter.ts`.
 - `tile-renderer.js` draws the colored face in a 120×160 design space, clipping
   colored layers to the original silhouette where a recipe asks for it.
 
-The game scales the design space 2× into a 256×320 face texture with an 8px
-paper margin, then maps it onto the 3D tile body from `TileFactory`.
+The game scales the design space 2× into a 240×320 face texture (3:4, matching
+the 4:3:2 tile face) and centers the solid paint bounding box before mapping it
+onto the 3D tile body from `TileFactory`.
 
 V3 changes carried into this directory (relative to the V2 reference package):
 flower color/silhouette fixes (`baseSubpaths`, `baseClips`, `clipToSilhouette`,

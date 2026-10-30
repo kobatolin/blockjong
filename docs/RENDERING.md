@@ -333,7 +333,7 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 
 | 项 | 值 |
 | --- | --- |
-| 画布 | 256 × 320（宽高比 0.8，与牌面一致） |
+| 画布 | 240 × 320（宽高比 0.75，与 4:3:2 牌面一致） |
 | 格式 | `CanvasTexture`，`SRGBColorSpace` |
 | 过滤 | 线性 + mipmap；`anisotropy = min(4, maxAnisotropy)` |
 | 数量 | 42 张（每种牌一张，所有副本共享） |
@@ -346,7 +346,7 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 ```ts
 function paintFace(kind: TileKind): HTMLCanvasElement {
   const c = document.createElement('canvas');
-  c.width = 256; c.height = 320;
+  c.width = 240; c.height = 320;
   const ctx = c.getContext('2d')!;
   paintBackground(ctx);
   switch (kind.suit) {
@@ -363,10 +363,10 @@ function paintFace(kind: TileKind): HTMLCanvasElement {
 
 ### 7.3 底色与“雕刻感”
 
-1. **底色**：中心 `#faf4e4` → 边缘 `#e8d8b8` 的线性渐变（256×320 纹理直接绘制）。
+1. **底色**：中心 `#faf4e4` → 边缘 `#e8d8b8` 的线性渐变（240×320 纹理直接绘制）。
 2. **纸纹**：约 110 个确定性噪点（按牌 id 走 FNV/mulberry32），避免纯色塑料感。
 3. **内框**：距边 6px 的圆角矩形描边，`rgba(133, 115, 77, 0.32)`，宽 1.2px。
-4. **构图坐标**：内容在 `120×160` 设计空间绘制，放大 2×并居中到 256×320 纹理（左右各 8px 纸边）。
+4. **构图坐标**：内容在 `120×160` 设计空间绘制，放大 2×；测得实心填漆的包围盒后居中到 240×320 纹理（轮廓来自带牌框的设计，墨迹天然偏上几像素）。
 5. **雕刻**：
    - 图形先画主色，再用同色 `strokeText` 加粗（万子数字 4px、萬 6px、發 7px、東 7.5px 设计宽度）；
    - 牌面不做阴影/浮雕，避免与 3D 牌体的阴影重复。
@@ -470,7 +470,7 @@ const TRADITIONAL_FONT =
   - 索子：绿色竹签，1/5/7/9 有红色强调；
   - 花牌：按轮廓索引和裁剪区域给花瓣/花心/叶子着色；
   - 白板：由 3D 牌面上的自定义内框表现。
-- **绘制**：`tile-renderer.js` 在 120×160 设计空间逐层 `Path2D` 绘制；`facePainter.ts` 将其放大 2×到 256×320，保留 8px 纸边，再贴到 3D 牌体。
+- **绘制**：`tile-renderer.js` 在 120×160 设计空间逐层 `Path2D` 绘制；`facePainter.ts` 放大 2×到 240×320，按实心填漆包围盒居中，再贴到 3D 牌体。
 - **外框**：牌面轮廓中不含牌框；3D 牌体负责圆角/厚度/阴影，避免双层框。
 - **无字体依赖**：牌面烘焙不调用 `fillText`，规避字体加载失败、emoji 回退和不同机器字形差异。
 - **验收**：V3 包自带的 1 筒/白板轮廓重合校验为 99.97% / 100%；当前 3D 棋盘的 144 张完整模式已逐张检查。
@@ -712,7 +712,7 @@ const ndc = new THREE.Vector2(
 
 1. **InstancedMesh**：牌体共享材质，可合成 1 个 InstancedMesh；牌面按 42 种各建一个 InstancedMesh（每种 1–4 个实例）。draw call 从 ~288 降到 ~45。
    - 代价：每个实例的矩阵更新、拾取用 `instanceId`、动画需写矩阵；复杂度上升。
-2. **纹理图集**：42 张 256×320 合成为 2048×2048 图集，减少绑定切换。
+2. **纹理图集**：42 张 240×320 合成为 2048×2048 图集，减少绑定切换。
 3. **静态阴影**：牌不动时冻结 `shadow.autoUpdate`，仅在动画时开启。
 4. **合并桌面几何**：桌面/围边/镶嵌合并为一个 Mesh。
 
