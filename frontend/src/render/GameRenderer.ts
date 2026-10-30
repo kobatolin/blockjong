@@ -30,6 +30,61 @@ export interface LightingSettings {
   reflectivity: number
 }
 
+/** Every parameter currently exposed by the lighting/material pipeline. */
+export interface RenderTuning {
+  exposure: number
+  keyIntensity: number
+  fillIntensity: number
+  hemisphereIntensity: number
+  keyTemperature: number
+  fillTemperature: number
+  hemisphereTemperature: number
+  keyX: number
+  keyY: number
+  keyZ: number
+  fillX: number
+  fillY: number
+  fillZ: number
+  bodyRoughness: number
+  bodyMetalness: number
+  bodyClearcoat: number
+  bodyClearcoatRoughness: number
+  bodyEnvMapIntensity: number
+  faceRoughness: number
+  faceClearcoat: number
+  faceClearcoatRoughness: number
+  faceEnvMapIntensity: number
+  faceBumpScale: number
+  rimOpacity: number
+}
+
+export const DEFAULT_RENDER_TUNING: RenderTuning = {
+  exposure: 0.615,
+  keyIntensity: 1.395,
+  fillIntensity: 0.216,
+  hemisphereIntensity: 0.306,
+  keyTemperature: 4300,
+  fillTemperature: 5900,
+  hemisphereTemperature: 4600,
+  keyX: -8,
+  keyY: 16,
+  keyZ: 10,
+  fillX: 9,
+  fillY: 8,
+  fillZ: -8,
+  bodyRoughness: 0.68,
+  bodyMetalness: 0,
+  bodyClearcoat: 0.0696,
+  bodyClearcoatRoughness: 0.656,
+  bodyEnvMapIntensity: 0.18,
+  faceRoughness: 0.87,
+  faceClearcoat: 0.0408,
+  faceClearcoatRoughness: 0.522,
+  faceEnvMapIntensity: 0.0216,
+  faceBumpScale: 0.045,
+  rimOpacity: 0.0193,
+}
+
 export interface DragStartInfo {
   ranges: Record<Dir, number>
   segmentIds: number[]
@@ -408,6 +463,35 @@ export class GameRenderer {
       bodyEnvMapIntensity: this.tileFactory.getBodyMaterial().envMapIntensity,
       face: this.tileFactory.getFaceMaterialState(),
     }
+  }
+
+  setTuning(tuning: RenderTuning): void {
+    this.renderer.toneMappingExposure = tuning.exposure
+    this.keyLight.intensity = tuning.keyIntensity
+    this.fillLight.intensity = tuning.fillIntensity
+    this.hemisphere.intensity = tuning.hemisphereIntensity
+    this.keyLight.color.copy(kelvinToColor(tuning.keyTemperature))
+    this.fillLight.color.copy(kelvinToColor(tuning.fillTemperature))
+    this.hemisphere.color.copy(kelvinToColor(tuning.hemisphereTemperature))
+    this.keyLight.position.set(tuning.keyX, tuning.keyY, tuning.keyZ)
+    this.fillLight.position.set(tuning.fillX, tuning.fillY, tuning.fillZ)
+
+    const body = this.tileFactory.getBodyMaterial()
+    body.roughness = tuning.bodyRoughness
+    body.metalness = tuning.bodyMetalness
+    body.clearcoat = tuning.bodyClearcoat
+    body.clearcoatRoughness = tuning.bodyClearcoatRoughness
+    body.envMapIntensity = tuning.bodyEnvMapIntensity
+    body.needsUpdate = true
+
+    this.tileFactory.setFaceTuning({
+      roughness: tuning.faceRoughness,
+      clearcoat: tuning.faceClearcoat,
+      clearcoatRoughness: tuning.faceClearcoatRoughness,
+      envMapIntensity: tuning.faceEnvMapIntensity,
+      bumpScale: tuning.faceBumpScale,
+    })
+    this.tileFactory.setRimOpacity(tuning.rimOpacity)
   }
 
   private effectiveQuality(): Exclude<RenderQuality, 'auto'> {

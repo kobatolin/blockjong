@@ -7,7 +7,7 @@ import { findVisiblePartners } from '@/core/rules'
 import { formatSeed, formatSeedHex, randomSeed } from '@/core/seed'
 import { GameSession } from '@/core/session'
 import type { Dir, GameSnapshot, ModeId, SeedSource } from '@/core/types'
-import { GameRenderer, type DragPreviewInfo, type DragStartInfo, type GameRendererCallbacks } from '@/render/GameRenderer'
+import { GameRenderer, type DragPreviewInfo, type DragStartInfo, type GameRendererCallbacks, type RenderTuning } from '@/render/GameRenderer'
 import { Sfx } from '@/render/audio'
 import { useGameStore } from '@/stores/game'
 import { buildShareUrl, copyText, writeUrlState } from '@/utils/url'
@@ -211,6 +211,10 @@ function handleDeadlock(): void {
   sfx.deadlock()
   dialog.value = 'deadlock'
   renderer?.setInteractive(false)
+}
+
+function applyDebugTuning(tuning: RenderTuning): void {
+  renderer?.setTuning(tuning)
 }
 
 function handleTap(_tileId: number, row: number, col: number): void {
@@ -881,7 +885,7 @@ onBeforeUnmount(() => {
       @cancel="cancelRestart"
     />
 
-    <LightingPanel />
+    <LightingPanel @apply-tuning="applyDebugTuning" />
 
     <SettingsPanel :open="settingsOpen" @close="closeSettings" />
 

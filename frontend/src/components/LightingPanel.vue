@@ -1,42 +1,97 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useGameStore } from '@/stores/game'
+import { reactive, ref } from 'vue'
+import {
+  DEFAULT_RENDER_TUNING,
+  type RenderTuning,
+} from '@/render/GameRenderer'
 
-const store = useGameStore()
+interface ParamDef {
+  key: keyof RenderTuning
+  label: string
+  min: number
+  max: number
+  step: number
+  digits: number
+  unit?: string
+}
+
+const emit = defineEmits<{ applyTuning: [RenderTuning] }>()
+const tuning = reactive<RenderTuning>({ ...DEFAULT_RENDER_TUNING })
 const collapsed = ref(false)
 
-function inputValue(event: Event): number {
-  return Number((event.target as HTMLInputElement).value)
+const groups: Array<{ title: string; note?: string; params: ParamDef[] }> = [
+  {
+    title: '灯光',
+    note: '直接控制三盏灯与曝光',
+    params: [
+      { key: 'exposure', label: '曝光', min: 0.2, max: 1.4, step: 0.005, digits: 3 },
+      { key: 'keyIntensity', label: '主光强度', min: 0, max: 4, step: 0.01, digits: 2 },
+      { key: 'fillIntensity', label: '补光强度', min: 0, max: 2, step: 0.01, digits: 2 },
+      { key: 'hemisphereIntensity', label: '半球光', min: 0, max: 2, step: 0.01, digits: 2 },
+      { key: 'keyTemperature', label: '主光色温', min: 2700, max: 9000, step: 50, digits: 0, unit: 'K' },
+      { key: 'fillTemperature', label: '补光色温', min: 2700, max: 9000, step: 50, digits: 0, unit: 'K' },
+      { key: 'hemisphereTemperature', label: '半球色温', min: 2700, max: 9000, step: 50, digits: 0, unit: 'K' },
+      { key: 'keyX', label: '主光 X', min: -20, max: 20, step: 0.5, digits: 1 },
+      { key: 'keyY', label: '主光 Y', min: 1, max: 30, step: 0.5, digits: 1 },
+      { key: 'keyZ', label: '主光 Z', min: -20, max: 20, step: 0.5, digits: 1 },
+      { key: 'fillX', label: '补光 X', min: -20, max: 20, step: 0.5, digits: 1 },
+      { key: 'fillY', label: '补光 Y', min: 1, max: 30, step: 0.5, digits: 1 },
+      { key: 'fillZ', label: '补光 Z', min: -20, max: 20, step: 0.5, digits: 1 },
+    ],
+  },
+  {
+    title: '牌体材质',
+    note: 'MeshPhysicalMaterial',
+    params: [
+      { key: 'bodyRoughness', label: '粗糙度', min: 0.02, max: 1, step: 0.01, digits: 2 },
+      { key: 'bodyMetalness', label: '金属度', min: 0, max: 1, step: 0.01, digits: 2 },
+      { key: 'bodyClearcoat', label: '清漆层', min: 0, max: 1, step: 0.01, digits: 2 },
+      { key: 'bodyClearcoatRoughness', label: '清漆粗糙度', min: 0, max: 1, step: 0.01, digits: 2 },
+      { key: 'bodyEnvMapIntensity', label: '环境反射', min: 0, max: 2, step: 0.01, digits: 2 },
+    ],
+  },
+  {
+    title: '牌面材质',
+    note: '阴刻填漆 + 亚克力',
+    params: [
+      { key: 'faceRoughness', label: '牌面粗糙度', min: 0.05, max: 1, step: 0.01, digits: 2 },
+      { key: 'faceClearcoat', label: '牌面清漆', min: 0, max: 1, step: 0.01, digits: 2 },
+      { key: 'faceClearcoatRoughness', label: '清漆粗糙度', min: 0, max: 1, step: 0.01, digits: 2 },
+      { key: 'faceEnvMapIntensity', label: '牌面反射', min: 0, max: 1, step: 0.005, digits: 3 },
+      { key: 'faceBumpScale', label: '阴刻高度', min: 0, max: 0.2, step: 0.001, digits: 3 },
+      { key: 'rimOpacity', label: '边缘高光', min: 0, max: 0.8, step: 0.005, digits: 3 },
+    ],
+  },
+]
+
+function format(param: ParamDef): string {
+  const value = tuning[param.key]
+  return `${value.toFixed(param.digits)}${param.unit ? ` ${param.unit}` : ''}`
 }
 
-function onLightIntensity(event: Event): void {
-  store.setLightIntensity(inputValue(event))
+function onInput(key: keyof RenderTuning, event: Event): void {
+  const value = Number((event.target as HTMLInputElement).value)
+  tuning[key] = value
+  emit('applyTuning', { ...tuning })
 }
 
-function onLightTemperature(event: Event): void {
-  store.setLightTemperature(inputValue(event))
-}
-
-function onTileRoughness(event: Event): void {
-  store.setTileRoughness(inputValue(event))
-}
-
-function onTileReflectivity(event: Event): void {
-  store.setTileReflectivity(inputValue(event))
+function reset(): void {
+  Object.assign(tuning, DEFAULT_RENDER_TUNING)
+  emit('applyTuning', { ...tuning })
 }
 </script>
 
 <template>
-  <aside class="lighting-debug" :class="{ collapsed }" aria-label="光照调试面板">
+  <aside class="lighting-debug" :class="{ collapsed }" aria-label="渲染参数调试面板">
     <header>
       <div class="title">
-        <span class="eyebrow">LIGHT DEBUG</span>
-        <strong>光照调试</strong>
+        <span class="eyebrow">RENDER DEBUG</span>
+        <strong>渲染参数</strong>
       </div>
       <button
         type="button"
         class="collapse"
-        :aria-label="collapsed ? '展开光照调试' : '收起光照调试'"
+        :aria-label="collapsed ? '展开渲染参数' : '收起渲染参数'"
         :aria-expanded="!collapsed"
         @click="collapsed = !collapsed"
       >
@@ -45,73 +100,31 @@ function onTileReflectivity(event: Event): void {
     </header>
 
     <div v-if="!collapsed" class="body">
-      <label class="slider-field">
-        <span class="slider-head">
-          <span>光照强度</span>
-          <output>{{ store.lightIntensity.toFixed(2) }}</output>
-        </span>
-        <input
-          type="range"
-          min="0.35"
-          max="1.8"
-          step="0.01"
-          :value="store.lightIntensity"
-          aria-label="光照强度"
-          @input="onLightIntensity"
-        />
-      </label>
+      <p class="scope">仅调整参数，不改变渲染管线；覆盖基础设置</p>
 
-      <label class="slider-field">
-        <span class="slider-head">
-          <span>色温</span>
-          <output>{{ Math.round(store.lightTemperature) }} K</output>
-        </span>
-        <input
-          type="range"
-          min="2700"
-          max="6500"
-          step="50"
-          :value="store.lightTemperature"
-          aria-label="色温"
-          @input="onLightTemperature"
-        />
-      </label>
+      <section v-for="group in groups" :key="group.title" class="group">
+        <header class="group-head">
+          <strong>{{ group.title }}</strong>
+          <small v-if="group.note">{{ group.note }}</small>
+        </header>
+        <label v-for="param in group.params" :key="param.key" class="slider-field">
+          <span class="slider-head">
+            <span>{{ param.label }}</span>
+            <output>{{ format(param) }}</output>
+          </span>
+          <input
+            type="range"
+            :min="param.min"
+            :max="param.max"
+            :step="param.step"
+            :value="tuning[param.key]"
+            :aria-label="param.label"
+            @input="onInput(param.key, $event)"
+          />
+        </label>
+      </section>
 
-      <label class="slider-field">
-        <span class="slider-head">
-          <span>牌面粗糙度</span>
-          <output>{{ store.tileRoughness.toFixed(2) }}</output>
-        </span>
-        <input
-          type="range"
-          min="0.18"
-          max="0.95"
-          step="0.01"
-          :value="store.tileRoughness"
-          aria-label="牌面粗糙度"
-          @input="onTileRoughness"
-        />
-      </label>
-
-      <label class="slider-field">
-        <span class="slider-head">
-          <span>反光强度</span>
-          <output>{{ store.tileReflectivity.toFixed(2) }}</output>
-        </span>
-        <input
-          type="range"
-          min="0"
-          max="1.2"
-          step="0.01"
-          :value="store.tileReflectivity"
-          aria-label="反光强度"
-          @input="onTileReflectivity"
-        />
-      </label>
-
-      <button type="button" class="reset" @click="store.resetAppearance()">
-        恢复默认
-      </button>
+      <button type="button" class="reset" @click="reset">恢复全部默认</button>
     </div>
   </aside>
 </template>
@@ -122,26 +135,35 @@ function onTileReflectivity(event: Event): void {
   top: 92px;
   right: 16px;
   z-index: 26;
-  width: 214px;
-  padding: 12px 13px 13px;
+  width: 238px;
+  max-height: calc(100vh - 120px);
+  padding: 12px 13px 14px;
+  overflow-y: auto;
   border: 1px solid rgba(217, 179, 108, 0.28);
   border-radius: 13px;
   background:
-    linear-gradient(160deg, rgba(18, 40, 32, 0.9), rgba(5, 18, 14, 0.94));
+    linear-gradient(160deg, rgba(18, 40, 32, 0.92), rgba(5, 18, 14, 0.96));
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.035);
   backdrop-filter: blur(10px);
   color: var(--ivory);
+  scrollbar-width: thin;
 }
 
 .lighting-debug.collapsed {
-  width: 132px;
+  width: 146px;
+  overflow: hidden;
 }
 
 header {
+  position: sticky;
+  top: -12px;
+  z-index: 2;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+  padding: 4px 0 8px;
+  background: rgba(8, 22, 17, 0.94);
 }
 
 .title {
@@ -185,13 +207,48 @@ header {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 2px;
+}
+
+.scope {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.group-head strong {
+  color: var(--gold);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.group-head small {
+  color: var(--muted);
+  font-size: 8.5px;
+  white-space: nowrap;
 }
 
 .slider-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .slider-head {
@@ -200,18 +257,18 @@ header {
   justify-content: space-between;
   gap: 8px;
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: 10px;
 }
 
 .slider-head output {
   color: var(--gold);
   font-variant-numeric: tabular-nums;
-  font-size: 10.5px;
+  font-size: 9.5px;
 }
 
 .slider-field input[type='range'] {
   width: 100%;
-  height: 17px;
+  height: 15px;
   margin: 0;
   accent-color: var(--gold);
   cursor: pointer;
@@ -219,6 +276,7 @@ header {
 
 .reset {
   align-self: flex-start;
+  margin-top: 3px;
   padding: 4px 0;
   border: 0;
   border-bottom: 1px solid rgba(217, 179, 108, 0.3);
@@ -235,15 +293,15 @@ header {
 
 @media (max-width: 720px) {
   .lighting-debug {
-    top: auto;
+    top: 88px;
     right: 8px;
-    bottom: 88px;
-    width: 180px;
+    width: 190px;
+    max-height: calc(100vh - 180px);
     padding: 10px;
   }
 
   .lighting-debug.collapsed {
-    width: 124px;
+    width: 126px;
   }
 }
 </style>

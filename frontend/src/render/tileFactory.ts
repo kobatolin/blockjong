@@ -128,6 +128,29 @@ export class TileFactory {
     )
   }
 
+  setRimOpacity(opacity: number): void {
+    this.rimMaterial.opacity = Math.min(0.8, Math.max(0, opacity))
+  }
+
+  setFaceTuning(tuning: {
+    roughness: number
+    clearcoat: number
+    clearcoatRoughness: number
+    envMapIntensity: number
+    bumpScale: number
+  }): void {
+    this.faceRoughness = tuning.roughness
+    this.faceReflectivity = tuning.envMapIntensity
+    for (const material of this.faceMaterials.values()) {
+      material.roughness = tuning.roughness
+      material.clearcoat = tuning.clearcoat
+      material.clearcoatRoughness = tuning.clearcoatRoughness
+      material.envMapIntensity = tuning.envMapIntensity
+      material.bumpScale = tuning.bumpScale
+      material.needsUpdate = true
+    }
+  }
+
   getFaceMaterialState(): {
     type: string
     roughness: number
