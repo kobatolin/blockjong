@@ -65,6 +65,30 @@ export class TileFactory {
       clearcoatRoughness: 0.6,
       envMapIntensity: 0.34,
     })
+    // Color the lower 20% of the same rounded body, including the back face,
+    // without adding a second geometry. This keeps every corner continuous.
+    const backColor = new THREE.Color(0x18a8df)
+    const backY = -TILE_H * 0.3
+    this.bodyMaterial.onBeforeCompile = (shader) => {
+      shader.uniforms.uBackColor = { value: backColor }
+      shader.uniforms.uBackY = { value: backY }
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying float vLocalY;')
+        .replace(
+          '#include <begin_vertex>',
+          '#include <begin_vertex>\nvLocalY = position.y;',
+        )
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          '#include <common>\nvarying float vLocalY;\nuniform vec3 uBackColor;\nuniform float uBackY;',
+        )
+        .replace(
+          '#include <color_fragment>',
+          '#include <color_fragment>\nif (vLocalY < uBackY) diffuseColor.rgb = uBackColor;',
+        )
+    }
+    this.bodyMaterial.customProgramCacheKey = () => 'tile-body-blue-back-band'
     this.painter = new FacePainter(renderer)
   }
 

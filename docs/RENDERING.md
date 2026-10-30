@@ -73,7 +73,7 @@ Scene
 │   └── inlayLine         黄铜细线（可选）
 ├── tileLayer
 │   ├── TileView[0]       Group
-│   │   ├── body          RoundedBoxGeometry + 象牙白材质
+│   │   ├── body          RoundedBoxGeometry + 白色材质；shader 将局部 Y 最低 20% 染蓝
 │   │   └── face          PlaneGeometry + 牌面纹理
 │   └── ...
 ├── fxLayer
@@ -206,7 +206,7 @@ key.shadow.normalBias = 0.02;
 ### 5.3 色调
 
 - 整体偏暖，但毛毡保持冷绿，形成冷暖对比。
-- 牌体 `#dee7da`，牌面亚克力底 `#eeece8`；墨层 `#0d1110`、红 `#df2029`、绿 `#114f37`，避免在灯光下冲淡。
+- 牌体 `#dee7da`，背面和四个侧面最低 20% 由同一圆角牌体的 shader 染成 `#18a8df`；牌面亚克力底 `#eeece8`；墨层 `#0d1110`、红 `#df2029`、绿 `#114f37`，避免在灯光下冲淡。
 - 牌面墨色整体加深（蓝 `#1b4f8f`、绿 `#196544`、红 `#94261f`、墨 `#1b2932`），保证缩小后仍可辨。
 - 高辨识度构图：字牌用 154px 大字；万子数字与“萬”都用红色；筒一为花瓣轮盘，筒二至九用大号同心点；索二至九用带竹节/红色中段的竹签；花牌同时画数字、字与植物图标。
 - 金色只用于选中/提示/粒子，不铺大面积。
@@ -221,6 +221,8 @@ key.shadow.normalBias = 0.02;
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const bodyGeo = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 4, CORNER_R);
+// body material 的 onBeforeCompile 在 fragment shader 中按 vLocalY 把
+// y < -TILE_H * 0.3 的区域覆盖为蓝色；不新增背盖几何，圆角保持连续。
 ```
 
 - 所有牌共享同一份 `bodyGeo` 与 `faceGeo`。
