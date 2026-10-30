@@ -927,6 +927,6 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at 50% 45%, transparent 42%, rgba(0, 0, 0, 0.5) 100%);
+  background: radial-gradient(circle at 50% 45%, transparent 58%, rgba(0, 0, 0, 0.16) 100%);
 }
 </style>

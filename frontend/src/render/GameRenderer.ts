@@ -322,8 +322,8 @@ export class GameRenderer {
     this.renderer.domElement.tabIndex = 0
     container.appendChild(this.renderer.domElement)
 
-    this.scene.background = new THREE.Color(0x07120f)
-    this.scene.fog = new THREE.FogExp2(0x08130f, 0.01)
+    this.scene.background = new THREE.Color(0x0b1d18)
+    this.scene.fog = new THREE.FogExp2(0x0d211b, 0.008)
     this.camera = new THREE.PerspectiveCamera(CAMERA_FOV, 1, 0.1, 200)
 
     this.table = createTable(rows, cols)
