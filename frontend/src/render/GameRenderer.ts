@@ -363,7 +363,13 @@ export class GameRenderer {
 
     this.tileFactory = new TileFactory(this.renderer)
 
-    this.composer = new EffectComposer(this.renderer)
+    this.composer = new EffectComposer(
+      this.renderer,
+      new THREE.WebGLRenderTarget(1, 1, {
+        type: THREE.HalfFloatType,
+        samples: Math.min(4, this.renderer.capabilities.maxSamples),
+      }),
+    )
     this.composer.addPass(new RenderPass(this.scene, this.camera))
     this.ssaoPass = new SSAOPass(this.scene, this.camera, 1, 1)
     this.ssaoPass.kernelRadius = 10

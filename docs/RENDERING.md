@@ -311,6 +311,7 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 - 粗糙度/反光同时作用于牌体和牌面；反光层只覆盖牌面边缘，不覆盖刻痕；
 - 默认值按室内顶部主光 + 暖色墙面/天光半球光 + 柔和正面补光设置：主光 1.395、补光 0.252、半球光 0.495、曝光 0.704；墙面 groundColor `#b8a88e`；
 - SSAO 只在中/高画质启用，用于牌与牌、牌与桌面的接触阴影；低画质关闭。
+- EffectComposer 的离屏 target 使用 **4x MSAA + HalfFloat**；只开 `WebGLRenderer({ antialias: true })` 不会给后处理离屏 buffer 抗锯齿，牌边会出现犬牙。
 - “恢复默认光照”只重置四项外观参数，不动音效/画质/动效。
 
 ---
