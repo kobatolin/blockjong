@@ -87,7 +87,7 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 - **纹理颜色空间**：CanvasTexture 必须设 `SRGBColorSpace`，否则牌面发灰/过曝。
 - **牌面**：当前使用 `src/render/imahjong/` 的 V2 轮廓管线（`hk-contours.js` + `tile-segmentation.js` + `tile-renderer.js`）。牌面在运行时**不加载字体**，不要重新引入 `fillText` 牌面；源字体与 M+ 授权在 `src/assets/fonts/`，`hk-contours.js` 是生成产物。
 - **牌面外框**：轮廓数据已剔除整牌边框；边框由 3D 牌体承担。白板内框在 `facePainter.ts` 里单独补画，否则会空白。
-- **牌面光照**：牌面用 `MeshStandardMaterial`（有 `map`、无 `emissive`），会响应主光/色温/曝光；`TileFactory.setFaceAppearance()` 让粗糙度/反光滑杆同时作用于牌面。不要再改回 `MeshBasicMaterial` 造成“自发光”观感。
+- **牌面光照**：牌面用 `MeshStandardMaterial`（有 `map`、无 `emissive`），会响应主光/色温/曝光；`TileFactory.setFaceAppearance()` 让粗糙度/反光滑杆同时作用于牌面，并通过牌面上方的柔和 additive 反射层提供可见的光泽反馈。不要再改回 `MeshBasicMaterial` 造成“自发光”观感。
 - **拾取坐标**：NDC 用 `canvas.getBoundingClientRect()`，不是 `window.innerWidth`。
 - **相机适配**：棋盘为竖长格（`CELL_D = 1.25`），别按正方形算范围。
 - **种子**：0 是合法 seed，“未输入”用 `null`；URL 的 `?seed=` 必须走同一套校验；随机 seed 用 `crypto.getRandomValues`，不要用 `Math.random` 生成开局布局。

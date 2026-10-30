@@ -274,16 +274,16 @@ const faceMat = new THREE.MeshStandardMaterial({
 | --- | --- | --- | --- | --- |
 | 光照强度 | `lightIntensity` | 0.35–1.80 | 0.90 | 等比缩放主光/补光/半球光 |
 | 色温 | `lightTemperature` | 2700–6500 K | 4300 K | 主光黑体色；补光更冷、半球光略暖 |
-| 牌面粗糙度 | `tileRoughness` | 0.18–0.95 | 0.68 | 牌体 `MeshPhysicalMaterial.roughness` |
-| 反光强度 | `tileReflectivity` | 0–1.20 | 0.18 | `envMapIntensity` + 轻量 clearcoat |
+| 牌面粗糙度 | `tileRoughness` | 0.18–0.95 | 0.68 | 牌体 `roughness` + 牌面粗糙度 + 高光扩散 |
+| 反光强度 | `tileReflectivity` | 0–1.20 | 0.18 | `envMapIntensity` + clearcoat + 牌面柔和反射层 |
 
 实现要点：
 
 - 色温用近似黑体辐射公式转 `THREE.Color`，设置主光、补光与半球光颜色；
-- 光强影响灯光，并轻微映射到 `toneMappingExposure`；牌面现在是受光材质，因此也会一起变亮/变暗；
-- 粗糙度/反光同时作用于 3D 牌体和牌面 `MeshStandardMaterial`（牌面粗糙度不低于 0.5，反光为设置值的 30%）；
+- 光强影响灯光，并映射到 `toneMappingExposure`（0.38–1.00）；牌面是受光材质，会一起变亮/变暗；
+- 粗糙度/反光同时作用于 3D 牌体、牌面 `MeshStandardMaterial`，以及牌面上一层随反光/粗糙度变化的柔和反射层（平面本身很难在顶部视角下产生可见高光，反射层用于给出可靠的视觉反馈）；
 - 默认值比旧版更柔和：主光 1.395、补光 0.216、半球光 0.306，牌体更哑光、环境反射更低；
-- 因牌面是不受光的 `MeshBasicMaterial`，光强滑杆同时轻微映射到 `toneMappingExposure`（0.72–0.92），保证调暗时牌面也跟着变暗，而不是只有牌体变暗；
+- 因牌面是受光材质，光强滑杆同时映射到 `toneMappingExposure`（0.38–1.00），调暗时牌面与牌体一起变暗；
 - “恢复默认光照”只重置四项外观参数，不动音效/画质/动效。
 
 ---

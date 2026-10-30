@@ -376,10 +376,10 @@ export class GameRenderer {
     this.keyLight.intensity = 1.55 * intensity
     this.fillLight.intensity = 0.24 * intensity
     this.hemisphere.intensity = 0.34 * intensity
-    // The printed face is unlit, so expose intensity as a gentle global
-    // exposure too; otherwise dimming the lights would not change the face.
+    // The printed face is lit, but a wider exposure range is needed so the
+    // slider has a clearly visible effect on the near-white paper texture.
     this.renderer.toneMappingExposure =
-      0.72 + 0.2 * clamp((intensity - 0.35) / 1.45, 0, 1)
+      0.38 + 0.62 * clamp((intensity - 0.35) / 1.45, 0, 1)
 
     this.keyLight.color.copy(kelvinToColor(temperature))
     this.fillLight.color.copy(kelvinToColor(Math.min(9000, temperature + 1600)))
@@ -388,10 +388,26 @@ export class GameRenderer {
     const material = this.tileFactory.getBodyMaterial()
     material.roughness = roughness
     material.envMapIntensity = reflectivity
-    material.clearcoat = 0.03 + reflectivity * 0.22
-    material.clearcoatRoughness = 0.35 + roughness * 0.45
+    material.clearcoat = 0.02 + reflectivity * 0.75
+    material.clearcoatRoughness = 0.08 + roughness * 0.5
     material.needsUpdate = true
-    this.tileFactory.setFaceAppearance(roughness, reflectivity)
+    this.tileFactory.setFaceAppearance(roughness, reflectivity, intensity)
+  }
+
+  getLightingState(): {
+    keyIntensity: number
+    exposure: number
+    bodyRoughness: number
+    bodyEnvMapIntensity: number
+    face: { type: string; roughness: number; envMapIntensity: number } | null
+  } {
+    return {
+      keyIntensity: this.keyLight.intensity,
+      exposure: this.renderer.toneMappingExposure,
+      bodyRoughness: this.tileFactory.getBodyMaterial().roughness,
+      bodyEnvMapIntensity: this.tileFactory.getBodyMaterial().envMapIntensity,
+      face: this.tileFactory.getFaceMaterialState(),
+    }
   }
 
   private effectiveQuality(): Exclude<RenderQuality, 'auto'> {

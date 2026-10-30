@@ -60,6 +60,13 @@ interface MahjDebugApi {
     k: number
     candidates: Array<{ id: number; row: number; col: number }>
   } | null
+  lightingState: () => {
+    keyIntensity: number
+    exposure: number
+    bodyRoughness: number
+    bodyEnvMapIntensity: number
+    face: { type: string; roughness: number; envMapIntensity: number } | null
+  } | null
   tap: (row: number, col: number) => void
   drag: (tileId: number, dir: Dir, k: number) => void
   uiState: () => {
@@ -778,6 +785,7 @@ function installDebugBridge(): void {
       }
       return null
     },
+    lightingState: () => renderer?.getLightingState() ?? null,
     tap: (row, col) => handleTap(-1, row, col),
     drag: (tileId, dir, k) => handleDragEnd(tileId, dir, k),
     uiState: () => ({
