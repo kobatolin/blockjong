@@ -73,15 +73,37 @@ export function slide(
 }
 
 /**
+ * Candidates that become visible only because of the slide. A pair that was
+ * already pairable before the drag must not be removed by dragging it around.
+ */
+export function newVisiblePartners(
+  originalBoard: BoardSnapshot,
+  preview: BoardSnapshot,
+  dragged: Tile,
+): Tile[] {
+  const originalDragged = tileById(originalBoard, dragged.id)
+  const candidates = findVisiblePartners(preview, dragged)
+  if (!originalDragged) return candidates
+  return candidates.filter((candidate) => {
+    const originalCandidate = tileById(originalBoard, candidate.id)
+    if (!originalCandidate) return true
+    return !visible(originalBoard, originalDragged, originalCandidate)
+  })
+}
+
+/**
  * Pick the landing partner: the selected anchor if it qualifies, otherwise
- * the nearest visible compatible tile (row/col then id order for ties).
+ * the nearest newly-visible compatible tile (row/col then id order for ties).
  */
 export function choosePartner(
   board: BoardSnapshot,
   dragged: Tile,
   anchorId: number | null,
+  originalBoard: BoardSnapshot | null = null,
 ): Tile | null {
-  const candidates = findVisiblePartners(board, dragged)
+  const candidates = originalBoard
+    ? newVisiblePartners(originalBoard, board, dragged)
+    : findVisiblePartners(board, dragged)
   if (candidates.length === 0) return null
 
   if (anchorId !== null) {
@@ -151,7 +173,7 @@ export function resolveDrag(
     }
   }
 
-  const partner = choosePartner(preview, dragged, anchorId)
+  const partner = choosePartner(preview, dragged, anchorId, board)
   const moved = tiles
     .map((source) => tileById(preview, source.id))
     .filter((movedTile): movedTile is Tile => movedTile !== null)

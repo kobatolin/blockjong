@@ -11,10 +11,10 @@ import {
   tileAt,
   tileById,
 } from './board'
-import { DIRS, findAnyMove, findAssistedTap, maxSlide, resolveDrag, segment } from './drag'
+import { DIRS, findAnyMove, findAssistedTap, maxSlide, newVisiblePartners, resolveDrag, segment } from './drag'
 import type { DragResolution } from './drag'
 import { generateBoard } from './generate'
-import { compatible, findVisiblePartners, visible } from './rules'
+import { compatible, visible } from './rules'
 import type {
   BoardSnapshot,
   Dir,
@@ -274,7 +274,7 @@ export class GameSession {
       }
     }
 
-    const candidates = findVisiblePartners(resolution.preview, resolution.dragged)
+    const candidates = newVisiblePartners(this.board, resolution.preview, resolution.dragged)
     if (candidates.length === 0) {
       return {
         kind: 'reverted',

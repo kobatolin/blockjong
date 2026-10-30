@@ -16,6 +16,7 @@ const LETTERS: Record<string, string> = {
   I: 'flower-orchid',
   J: 'honor-east',
   K: 'honor-south',
+  W: 'honor-white',
 }
 
 /** Build a board from ASCII rows; `.` means an empty cell, spaces are ignored. */

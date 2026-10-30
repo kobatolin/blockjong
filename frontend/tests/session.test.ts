@@ -165,13 +165,26 @@ describe('drag flow', () => {
   })
 
   it('uses the selected anchor as the landing partner', () => {
-    const session = sessionFrom(['A.A.A'])
+    const session = sessionFrom(['A....', '..A..', '.....'])
     session.tap(0, 0)
-    const moved = tileAtRowCol(session.getBoard(), 0, 2)
-    const result = session.dragEnd(moved.id, 'right', 1)
+    const moved = tileAtRowCol(session.getBoard(), 1, 2)
+    const result = session.dragEnd(moved.id, 'left', 2)
     expect(result.kind).toBe('matched')
     if (result.kind !== 'matched') return
-    expect(result.pair.map((tile) => tile.col).sort()).toEqual([0, 3])
+    expect(result.pair[0]).toMatchObject({ row: 1, col: 0 })
+    expect(result.pair[1]).toMatchObject({ row: 0, col: 0 })
+  })
+
+  it('does not remove a pair that was already visible and moved with the segment', () => {
+    const session = sessionFrom(['..', 'W.', 'W.', '..'])
+    const before = boardSignature(session.getBoard())
+    const lower = tileAtRowCol(session.getBoard(), 2, 0)
+    const result = session.dragEnd(lower.id, 'up', 1)
+    expect(result.kind).toBe('reverted')
+    expect(session.remaining).toBe(2)
+    expect(session.moveCount).toBe(0)
+    expect(session.historySize).toBe(0)
+    expect(boardSignature(session.getBoard())).toBe(before)
   })
 
   it('waits for a partner choice when the landing has multiple partners', () => {

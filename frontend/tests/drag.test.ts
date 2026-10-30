@@ -74,25 +74,25 @@ describe('drag landing', () => {
     expect(result.partner?.col).toBe(3)
   })
 
-  it('allows an adjacent pair inside the moving segment', () => {
+  it('does not allow an adjacent pair inside the moving segment', () => {
     const board = boardFromRows(['AAB.C'])
     const a = tileAtRowCol(board, 0, 0)
     const result = resolveDrag(board, a, 'right', 1, null)
 
-    expect(result.kind).toBe('match')
+    expect(result.kind).toBe('revert')
     expect(result.kMax).toBe(1)
     expect(result.dragged?.col).toBe(1)
-    expect(result.partner?.col).toBe(2)
+    expect(result.partner).toBeNull()
     expect(result.moved).toHaveLength(3)
   })
 
-  it('clamps k to the maximum slide', () => {
+  it('clamps k to the maximum slide even when the pair was already visible', () => {
     const board = boardFromRows(['A..A'])
     const a = tileAtRowCol(board, 0, 0)
     const result = resolveDrag(board, a, 'right', 99, null)
-    // A at c0 already sees A at c3; after sliding it lands next to the border.
     expect(result.k).toBe(2)
-    expect(result.kind).toBe('match')
+    expect(result.kind).toBe('revert')
+    expect(result.partner).toBeNull()
   })
 
   it('returns none for k = 0', () => {

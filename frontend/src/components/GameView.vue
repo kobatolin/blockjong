@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { boardSignature, tileById } from '@/core/board'
-import { findAnyDrag, findAssistedTap, segment, type AnyMove } from '@/core/drag'
+import { findAnyDrag, findAssistedTap, newVisiblePartners, segment, type AnyMove } from '@/core/drag'
 import { MODE_CONFIGS, totalTilesForMode } from '@/core/kinds'
 import { findVisiblePartners } from '@/core/rules'
 import { formatSeed, formatSeedHex, randomSeed } from '@/core/seed'
@@ -758,7 +758,7 @@ function installDebugBridge(): void {
             ) {
               continue
             }
-            const candidates = findVisiblePartners(resolution.preview, resolution.dragged)
+            const candidates = newVisiblePartners(board, resolution.preview, resolution.dragged)
             if (candidates.length > 1 && session.selected === null) {
               return {
                 tileId: tile.id,
