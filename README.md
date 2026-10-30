@@ -120,6 +120,8 @@ WebGL 自检：双击 [`scripts/check-webgl.html`](scripts/check-webgl.html)，�
 
 ## 截图
 
+> 截图由验收脚本生成，开发期不纳入版本库（避免仓库膨胀）；发布时用 `git add -f docs/screenshots` 随文档一并提交。以下图片在发布版中可见。
+
 ![主菜单](docs/screenshots/menu.png)
 
 ![简单模式对局](docs/screenshots/game-easy.png)
