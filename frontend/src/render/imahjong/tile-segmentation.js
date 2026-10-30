@@ -120,11 +120,21 @@ function colorRecipe(id) {
     const n = Number(id.split('-')[1]);
     const rules = [];
     if (n === 1) rules.push({ color: 'red', select: circle(.492, .468, .2, { index: 3, subpath: 'last' }) });
+    if (n === 2) rules.push({ color: 'green', select: band('y', .5, 1) });
     if (n === 3) rules.push(
       { color: 'ink', select: circle(.301, .2, .13) },
       { color: 'red', select: circle(.492, .468, .13) },
     );
-    if (n === 5) rules.push({ color: 'red', select: circle(.492, .468, .13) });
+    // 四筒、五筒：按两条对角线分组，上右/下左与上左/下右分别用 ink/green。
+    if (n === 4) rules.push(
+      { color: 'ink', select: circle(.6819, .2004, .2) },
+      { color: 'ink', select: circle(.3014, .7358, .2) },
+    );
+    if (n === 5) rules.push(
+      { color: 'ink', select: circle(.6819, .2004, .2) },
+      { color: 'ink', select: circle(.3014, .7358, .2) },
+      { color: 'ink', select: circle(.4913, .4681, .15) },
+    );
     if (n === 6) rules.push({ color: 'red', select: band('y', .4, 1) });
     // Split the joined outline along the tangent between the last green and first red pip.
     if (n === 7) rules.push({ color: 'red', select: band('y', .45, 1, { clipWhenTallerThan: .5, clipPath: dotSevenTangentClip() }) });
@@ -133,7 +143,7 @@ function colorRecipe(id) {
       { color: 'ink', select: band('y', .64, 1) },
     );
     return {
-      base: [2, 4, 8].includes(n) ? 'ink' : 'green',
+      base: [2, 8].includes(n) ? 'ink' : 'green',
       rules,
       // One-dot relies on winding across all contours; keep its silhouette whole.
       mergeBase: n === 1,
