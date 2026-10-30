@@ -148,6 +148,7 @@ export class TileFactory {
       material.clearcoatRoughness = tuning.clearcoatRoughness
       material.envMapIntensity = tuning.envMapIntensity
       material.normalScale.set(tuning.bumpScale * 3, tuning.bumpScale * 3)
+      material.clearcoatNormalScale.set(tuning.bumpScale * 2.5, tuning.bumpScale * 2.5)
       material.metalness = tuning.metalness
       material.needsUpdate = true
     }
@@ -159,6 +160,7 @@ export class TileFactory {
       const map = this.painter.get(kindId)
       material.map = map
       material.normalMap = this.painter.getNormal(kindId)
+      material.clearcoatNormalMap = this.painter.getNormal(kindId)
       material.metalnessMap = this.painter.getMetalnessMask(kindId)
       material.needsUpdate = true
     }
@@ -169,6 +171,7 @@ export class TileFactory {
     for (const [kindId, material] of this.faceMaterials) {
       material.map = this.painter.get(kindId)
       material.normalMap = this.painter.getNormal(kindId)
+      material.clearcoatNormalMap = this.painter.getNormal(kindId)
       material.metalnessMap = this.painter.getMetalnessMask(kindId)
       material.needsUpdate = true
     }
@@ -179,6 +182,7 @@ export class TileFactory {
     for (const [kindId, material] of this.faceMaterials) {
       material.map = this.painter.get(kindId)
       material.normalMap = this.painter.getNormal(kindId)
+      material.clearcoatNormalMap = this.painter.getNormal(kindId)
       material.metalnessMap = this.painter.getMetalnessMask(kindId)
       material.normalScale.set(height * 3, height * 3)
       material.needsUpdate = true
@@ -213,6 +217,8 @@ export class TileFactory {
       // “阴刻高度” slider; a plain bumpMap was too subtle on the flat top face.
       normalMap: this.painter.getNormal(kindId),
       normalScale: new THREE.Vector2(0.9, 0.9),
+      clearcoatNormalMap: this.painter.getNormal(kindId),
+      clearcoatNormalScale: new THREE.Vector2(0.8, 0.8),
       metalnessMap: this.painter.getMetalnessMask(kindId),
       metalness: 0.75,
       roughness: this.faceRoughness,

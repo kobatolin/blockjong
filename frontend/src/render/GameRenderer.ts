@@ -43,6 +43,10 @@ export interface RenderTuning {
   keyIntensity: number
   fillIntensity: number
   hemisphereIntensity: number
+  pointIntensity: number
+  pointX: number
+  pointY: number
+  pointZ: number
   keyTemperature: number
   fillTemperature: number
   hemisphereTemperature: number
@@ -77,6 +81,10 @@ export const DEFAULT_RENDER_TUNING: RenderTuning = {
   keyIntensity: 1.395,
   fillIntensity: 0.252,
   hemisphereIntensity: 0.495,
+  pointIntensity: 80,
+  pointX: 3,
+  pointY: 8,
+  pointZ: 5,
   keyTemperature: 4300,
   fillTemperature: 5900,
   hemisphereTemperature: 4600,
@@ -246,6 +254,7 @@ export class GameRenderer {
   private readonly keyLight: THREE.DirectionalLight
   private readonly fillLight: THREE.DirectionalLight
   private readonly hemisphere: THREE.HemisphereLight
+  private readonly pointLight: THREE.PointLight
   private readonly wallBounce: THREE.AmbientLight
   private readonly clock = new THREE.Clock()
   private readonly tweens = new TweenManager()
@@ -366,6 +375,12 @@ export class GameRenderer {
     // affects downward-facing normals, so it is invisible on the tabletop.
     this.wallBounce = new THREE.AmbientLight(0xb8a88e, 0.2)
     this.scene.add(this.wallBounce)
+
+    // A small ceiling-bulb accent. It gives the clearcoat a localized
+    // specular highlight; the ambient/hemisphere lights cannot do that.
+    this.pointLight = new THREE.PointLight(0xfff1df, 80, 30, 2)
+    this.pointLight.position.set(3, 8, 5)
+    this.scene.add(this.pointLight)
 
     this.keyLight = new THREE.DirectionalLight(0xfff1dc, 1.55)
     this.keyLight.position.set(-4, 18, 8)
@@ -497,6 +512,7 @@ export class GameRenderer {
     this.keyLight.intensity = 1.55 * intensity
     this.fillLight.intensity = 0.28 * intensity
     this.hemisphere.intensity = 0.55 * intensity
+    this.pointLight.intensity = 80 * intensity
     this.wallBounce.color.set(this.wallColor)
     this.wallBounce.intensity = 0.65 * intensity
     // The printed face is lit, but a wider exposure range is needed so the
@@ -538,6 +554,8 @@ export class GameRenderer {
     this.keyLight.intensity = tuning.keyIntensity
     this.fillLight.intensity = tuning.fillIntensity
     this.hemisphere.intensity = tuning.hemisphereIntensity
+    this.pointLight.intensity = tuning.pointIntensity
+    this.pointLight.position.set(tuning.pointX, tuning.pointY, tuning.pointZ)
     this.keyLight.color.copy(kelvinToColor(tuning.keyTemperature))
     this.fillLight.color.copy(kelvinToColor(tuning.fillTemperature))
     this.hemisphere.color.copy(kelvinToColor(tuning.hemisphereTemperature))

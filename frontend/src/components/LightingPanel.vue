@@ -39,12 +39,16 @@ const colors: Array<{
 const groups: Array<{ title: string; note?: string; params: ParamDef[] }> = [
   {
     title: '灯光',
-    note: '直接控制三盏灯与曝光',
+    note: '主光/补光/半球/点光与曝光',
     params: [
       { key: 'exposure', label: '曝光', min: 0.2, max: 1.4, step: 0.005, digits: 3 },
       { key: 'keyIntensity', label: '主光强度', min: 0, max: 4, step: 0.01, digits: 2 },
       { key: 'fillIntensity', label: '补光强度', min: 0, max: 2, step: 0.01, digits: 2 },
       { key: 'hemisphereIntensity', label: '半球光', min: 0, max: 2, step: 0.01, digits: 2 },
+      { key: 'pointIntensity', label: '点光强度', min: 0, max: 800, step: 1, digits: 0 },
+      { key: 'pointX', label: '点光 X', min: -20, max: 20, step: 0.5, digits: 1 },
+      { key: 'pointY', label: '点光 Y', min: 1, max: 30, step: 0.5, digits: 1 },
+      { key: 'pointZ', label: '点光 Z', min: -20, max: 20, step: 0.5, digits: 1 },
       { key: 'keyTemperature', label: '主光色温', min: 2700, max: 9000, step: 50, digits: 0, unit: 'K' },
       { key: 'fillTemperature', label: '补光色温', min: 2700, max: 9000, step: 50, digits: 0, unit: 'K' },
       { key: 'hemisphereTemperature', label: '半球色温', min: 2700, max: 9000, step: 50, digits: 0, unit: 'K' },
