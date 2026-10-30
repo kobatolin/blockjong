@@ -14,7 +14,7 @@ import {
 import { DIRS, findAnyMove, findAssistedTap, maxSlide, resolveDrag, segment } from './drag'
 import type { DragResolution } from './drag'
 import { generateBoard } from './generate'
-import { compatible, visible } from './rules'
+import { compatible, findVisiblePartners, visible } from './rules'
 import type {
   BoardSnapshot,
   Dir,
@@ -52,17 +52,38 @@ export type TapResult =
       k: number
       board: BoardSnapshot
     }
+  | {
+      kind: 'choiceMatched'
+      pair: [Tile, Tile]
+      moved: Tile[]
+      board: BoardSnapshot
+    }
+  | { kind: 'choiceCancelled'; moved: Tile[] }
 
 export type DragEndResult =
   | { kind: 'ignored' }
   | { kind: 'noop'; tile: Tile }
   | { kind: 'reverted'; moved: Tile[]; k: number; kMax: number }
   | {
+      kind: 'choice'
+      dragged: Tile
+      candidates: Tile[]
+      moved: Tile[]
+      preview: BoardSnapshot
+    }
+  | {
       kind: 'matched'
       pair: [Tile, Tile]
       moved: Tile[]
       board: BoardSnapshot
     }
+
+interface PendingChoice {
+  preview: BoardSnapshot
+  dragged: Tile
+  moved: Tile[]
+  candidates: Tile[]
+}
 
 interface HistoryEntry {
   board: BoardSnapshot
@@ -83,6 +104,7 @@ export class GameSession {
   private selectedId: number | null = null
   private moves = 0
   private history: HistoryEntry[] = []
+  private pendingChoice: PendingChoice | null = null
 
   private constructor(init: SessionInit) {
     this.mode = init.mode
@@ -151,6 +173,7 @@ export class GameSession {
   }
 
   tap(row: number, col: number): TapResult {
+    if (this.pendingChoice) return this.resolveChoice(row, col)
     if (this.phase !== 'idle') return { kind: 'ignored' }
 
     const target = tileAt(this.board, row, col)
@@ -210,7 +233,7 @@ export class GameSession {
   }
 
   dragInfo(row: number, col: number): DragInfo | null {
-    if (this.phase !== 'idle') return null
+    if (this.pendingChoice || this.phase !== 'idle') return null
     const tile = tileAt(this.board, row, col)
     if (!tile) return null
 
@@ -222,14 +245,14 @@ export class GameSession {
   }
 
   dragPreview(tileId: number, dir: Dir, k: number): DragResolution | null {
-    if (this.phase !== 'idle') return null
+    if (this.pendingChoice || this.phase !== 'idle') return null
     const tile = tileById(this.board, tileId)
     if (!tile) return null
     return resolveDrag(this.board, tile, dir, k, this.selectedId)
   }
 
   dragEnd(tileId: number, dir: Dir, k: number): DragEndResult {
-    if (this.phase !== 'idle') return { kind: 'ignored' }
+    if (this.pendingChoice || this.phase !== 'idle') return { kind: 'ignored' }
     const tile = tileById(this.board, tileId)
     if (!tile) return { kind: 'ignored' }
 
@@ -251,8 +274,41 @@ export class GameSession {
       }
     }
 
+    const candidates = findVisiblePartners(resolution.preview, resolution.dragged)
+    if (candidates.length === 0) {
+      return {
+        kind: 'reverted',
+        moved: resolution.moved,
+        k: resolution.k,
+        kMax: resolution.kMax,
+      }
+    }
+
+    const anchorCandidate =
+      this.selectedId === null
+        ? null
+        : candidates.find((candidate) => candidate.id === this.selectedId) ?? null
+
+    if (candidates.length > 1 && !anchorCandidate) {
+      this.pendingChoice = {
+        preview: resolution.preview,
+        dragged: resolution.dragged,
+        moved: resolution.moved,
+        candidates,
+      }
+      this.selectedId = null
+      return {
+        kind: 'choice',
+        dragged: resolution.dragged,
+        candidates,
+        moved: resolution.moved,
+        preview: resolution.preview,
+      }
+    }
+
+    const partner = anchorCandidate ?? candidates[0]
     this.pushHistory()
-    const pair: [Tile, Tile] = [resolution.dragged, resolution.partner]
+    const pair: [Tile, Tile] = [resolution.dragged, partner]
     this.board = removeTilesById(
       resolution.preview,
       new Set([pair[0].id, pair[1].id]),
@@ -269,8 +325,48 @@ export class GameSession {
     }
   }
 
+  private resolveChoice(row: number, col: number): TapResult {
+    const pending = this.pendingChoice
+    if (!pending) return { kind: 'ignored' }
+    const clicked = tileAt(pending.preview, row, col)
+    const candidate = clicked
+      ? pending.candidates.find((tile) => tile.id === clicked.id) ?? null
+      : null
+
+    if (!candidate) {
+      this.pendingChoice = null
+      this.selectedId = null
+      return { kind: 'choiceCancelled', moved: pending.moved }
+    }
+
+    this.pushHistory()
+    this.board = removeTilesById(
+      pending.preview,
+      new Set([pending.dragged.id, candidate.id]),
+    )
+    this.moves += 1
+    this.pendingChoice = null
+    this.selectedId = null
+    this.finishMove()
+
+    return {
+      kind: 'choiceMatched',
+      pair: [pending.dragged, candidate],
+      moved: pending.moved,
+      board: this.snapshotBoard(),
+    }
+  }
+
+  cancelChoice(): Tile[] | null {
+    if (!this.pendingChoice) return null
+    const moved = this.pendingChoice.moved
+    this.pendingChoice = null
+    this.selectedId = null
+    return moved
+  }
+
   undo(): boolean {
-    if (this.phase === 'won') return false
+    if (this.pendingChoice || this.phase === 'won') return false
     const entry = this.history.pop()
     if (!entry) return false
     this.board = entry.board
@@ -281,7 +377,7 @@ export class GameSession {
   }
 
   hint() {
-    if (this.phase !== 'idle') return null
+    if (this.pendingChoice || this.phase !== 'idle') return null
     return findAnyMove(this.board)
   }
 

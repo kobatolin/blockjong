@@ -51,12 +51,21 @@ interface MahjDebugApi {
     dir: Dir
     k: number
   } | null
+  findChoice: () => {
+    tileId: number
+    row: number
+    col: number
+    dir: Dir
+    k: number
+    candidates: Array<{ id: number; row: number; col: number }>
+  } | null
   tap: (row: number, col: number) => void
   drag: (tileId: number, dir: Dir, k: number) => void
   uiState: () => {
     busy: boolean
     dialog: DialogKind | null
     interactive: boolean
+    awaitingChoice: boolean
   } | null
 }
 
@@ -80,6 +89,7 @@ const snapshot = ref<GameSnapshot>(session.snapshot())
 const elapsedMs = ref(0)
 const running = ref(false)
 const busy = ref(false)
+const awaitingChoice = ref(false)
 const dialog = ref<DialogKind | null>(null)
 const settingsOpen = ref(false)
 const tutorialOpen = ref(false)
@@ -201,8 +211,35 @@ function handleTap(_tileId: number, row: number, col: number): void {
   if (debugMode) console.info('[mahj] tap', { row, col, kind: result.kind })
   if (result.kind === 'selected') sfx.select()
   else if (result.kind === 'matched' || result.kind === 'assisted') sfx.match()
+  else if (result.kind === 'choiceMatched') sfx.match()
+  else if (result.kind === 'choiceCancelled') sfx.revert()
   else if (result.kind === 'switched') sfx.revert()
   else if (result.kind === 'cleared' && result.hadSelection) sfx.click()
+  if (result.kind === 'choiceMatched' || result.kind === 'choiceCancelled') {
+    awaitingChoice.value = false
+    renderer?.clearChoice()
+    busy.value = true
+    renderer?.setInteractive(false)
+    if (!renderer) {
+      busy.value = false
+      syncView()
+      return
+    }
+    if (result.kind === 'choiceMatched') {
+      renderer.playMatch(result.pair, result.board, () => {
+        busy.value = false
+        syncView()
+        renderer?.setInteractive(dialog.value === null)
+      })
+    } else {
+      renderer.playRevert(result.moved, () => {
+        busy.value = false
+        syncView()
+        renderer?.setInteractive(dialog.value === null)
+      })
+    }
+    return
+  }
   if (result.kind === 'assisted') {
     busy.value = true
     renderer?.setInteractive(false)
@@ -260,7 +297,7 @@ function handleDragStart(
   col: number,
   dir: Dir,
 ): DragStartInfo | null {
-  if (busy.value || dialog.value) return null
+  if (busy.value || dialog.value || awaitingChoice.value) return null
   const info = session.dragInfo(row, col)
   if (!info) return null
   const board = session.getBoard()
@@ -298,7 +335,7 @@ function handleDragMove(tileId: number, dir: Dir, k: number): DragPreviewInfo | 
 }
 
 function handleDragEnd(tileId: number, dir: Dir, k: number): void {
-  if (busy.value || dialog.value) {
+  if (busy.value || dialog.value || awaitingChoice.value) {
     renderer?.resetDrag()
     return
   }
@@ -308,6 +345,15 @@ function handleDragEnd(tileId: number, dir: Dir, k: number): void {
   const result = session.dragEnd(tileId, dir, k)
   if (debugMode) {
     console.info('[mahj] dragEnd', { tileId, dir, k, kind: result.kind })
+  }
+
+  if (result.kind === 'choice') {
+    awaitingChoice.value = true
+    busy.value = false
+    renderer?.setInteractive(true)
+    renderer?.showChoice(result.candidates.map((tile) => tile.id))
+    showToast('点击一张高亮牌消除，点其它位置让牌归位')
+    return
   }
 
   if (!renderer) {
@@ -350,6 +396,24 @@ function handleDragCancel(): void {
 
 function handleUndo(): void {
   if (busy.value) return
+  if (awaitingChoice.value) {
+    const moved = session.cancelChoice()
+    awaitingChoice.value = false
+    renderer?.clearChoice()
+    if (!moved || !renderer) {
+      syncView()
+      return
+    }
+    busy.value = true
+    sfx.click()
+    renderer.setInteractive(false)
+    renderer.playRevert(moved, () => {
+      busy.value = false
+      syncView()
+      renderer?.setInteractive(dialog.value === null)
+    })
+    return
+  }
   if (!session.undo()) {
     showToast('没有可撤销的操作')
     return
@@ -365,6 +429,10 @@ function handleUndo(): void {
 
 function handleHint(): void {
   if (busy.value || dialog.value) return
+  if (awaitingChoice.value) {
+    showToast('请先选择一张高亮牌，或点其它位置归位')
+    return
+  }
   const move = session.hint()
   if (!move) {
     showToast('当前没有可行操作')
@@ -488,6 +556,8 @@ function startSession(mode: ModeId, seed: number, seedSource: SeedSource): void 
   dialog.value = null
   restartOrigin.value = null
   busy.value = false
+  awaitingChoice.value = false
+  renderer?.clearChoice()
   recorded = false
   accumulatedMs = 0
   elapsedMs.value = 0
@@ -656,12 +726,49 @@ function installDebugBridge(): void {
       }
       return null
     },
+    findChoice: () => {
+      const board = session.getBoard()
+      const tiles = board.cells.filter((tile): tile is NonNullable<typeof tile> => Boolean(tile))
+      for (const tile of tiles) {
+        for (const dir of ['left', 'right', 'up', 'down'] as Dir[]) {
+          const info = session.dragInfo(tile.row, tile.col)
+          const kMax = info?.ranges[dir] ?? 0
+          for (let k = 1; k <= kMax; k += 1) {
+            const resolution = session.dragPreview(tile.id, dir, k)
+            if (
+              resolution?.kind !== 'match' ||
+              !resolution.dragged ||
+              !resolution.partner
+            ) {
+              continue
+            }
+            const candidates = findVisiblePartners(resolution.preview, resolution.dragged)
+            if (candidates.length > 1 && session.selected === null) {
+              return {
+                tileId: tile.id,
+                row: tile.row,
+                col: tile.col,
+                dir,
+                k,
+                candidates: candidates.map((candidate) => ({
+                  id: candidate.id,
+                  row: candidate.row,
+                  col: candidate.col,
+                })),
+              }
+            }
+          }
+        }
+      }
+      return null
+    },
     tap: (row, col) => handleTap(-1, row, col),
     drag: (tileId, dir, k) => handleDragEnd(tileId, dir, k),
     uiState: () => ({
       busy: busy.value,
       dialog: dialog.value,
       interactive: renderer?.isInteractive() ?? false,
+      awaitingChoice: awaitingChoice.value,
     }),
   }
   ;(window as unknown as { __mahj?: MahjDebugApi }).__mahj = api

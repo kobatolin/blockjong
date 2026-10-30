@@ -215,7 +215,7 @@ git config --global user.email
 ## 9. M1–M5 实测状态（2026-10-29）
 
 - [x] 前端依赖安装成功（Vite 8.3.5、Three 0.186.1、Vue 3.5.44、Vitest 5.0.5、`@types/three` 0.186.0）。
-- [x] `npm run test:sandbox`：6 个测试文件、52 个用例全部通过。
+- [x] `npm run test:sandbox`：6 个测试文件、55 个用例全部通过。
 - [x] `npm run typecheck`：通过。
 - [x] `npm run build:sandbox`：产出 `frontend/dist`（JS 约 697KB / gzip 191KB，Three.js 体积警告可接受）。
 - [x] 后端 `uv venv` + `uv pip install`：FastAPI 0.162.0、Uvicorn 0.54.0、Pydantic 2.14.1。

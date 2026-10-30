@@ -99,6 +99,28 @@ function createHaloTexture(): THREE.CanvasTexture {
   return texture
 }
 
+function createChoiceHaloTexture(): THREE.CanvasTexture {
+  const canvas = createCanvas(256, 320)
+  const ctx = canvas.getContext('2d')!
+  ctx.clearRect(0, 0, 256, 320)
+  ctx.save()
+  roundRectPath(ctx, 8, 8, 240, 304, 30)
+  ctx.strokeStyle = 'rgba(255, 209, 92, 1)'
+  ctx.lineWidth = 14
+  ctx.shadowColor = 'rgba(255, 184, 48, 1)'
+  ctx.shadowBlur = 26
+  ctx.stroke()
+  ctx.shadowBlur = 10
+  ctx.strokeStyle = 'rgba(255, 249, 205, 1)'
+  ctx.lineWidth = 5
+  ctx.stroke()
+  ctx.restore()
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.anisotropy = 4
+  return texture
+}
+
 export class GameRenderer {
   private readonly container: HTMLElement
   private readonly callbacks: GameRendererCallbacks
@@ -128,6 +150,9 @@ export class GameRenderer {
   private readonly partnerHalos: THREE.Mesh[] = []
   private readonly partnerMarkers: THREE.Mesh[] = []
   private readonly hintMarkers: THREE.Mesh[] = []
+  private readonly choiceHaloGeometry: THREE.PlaneGeometry
+  private readonly choiceHaloMaterial: THREE.MeshBasicMaterial
+  private readonly choiceHalos: THREE.Mesh[] = []
   private readonly dragPartnerMarker: THREE.Mesh
   private readonly ghostGeometry: THREE.PlaneGeometry
   private readonly ghostMaterial: THREE.MeshBasicMaterial
@@ -237,6 +262,16 @@ export class GameRenderer {
       transparent: true,
       opacity: 0.42,
       depthWrite: false,
+    })
+
+    this.choiceHaloGeometry = new THREE.PlaneGeometry(1.24, 1.5)
+    const choiceTexture = createChoiceHaloTexture()
+    this.choiceHaloMaterial = new THREE.MeshBasicMaterial({
+      map: choiceTexture,
+      transparent: true,
+      opacity: 0.96,
+      depthWrite: false,
+      depthTest: false,
     })
 
     this.dragPartnerMarker = this.createMarker()
@@ -421,6 +456,24 @@ export class GameRenderer {
     this.updateSelectionVisuals()
   }
 
+  /** Persistent partner highlight while the player chooses a drag target. */
+  showChoice(tileIds: number[]): void {
+    this.hintIds = [...tileIds]
+    this.hintUntil = Number.POSITIVE_INFINITY
+    this.updateChoiceMarkers(tileIds)
+    this.updateSelectionVisuals()
+    this.updateHintMarkers(this.hintIds)
+  }
+
+  clearChoice(): void {
+    this.hintIds = []
+    this.hintUntil = 0
+    this.partnerIds = []
+    this.updateChoiceMarkers([])
+    this.updateHintMarkers([])
+    this.updatePartnerMarkers([])
+  }
+
   playAssistedMatch(
     moved: Tile[],
     pair: [Tile, Tile],
@@ -591,6 +644,10 @@ export class GameRenderer {
     this.haloTexture.dispose()
     this.partnerHaloGeometry.dispose()
     this.partnerHaloMaterial.dispose()
+    this.choiceHaloGeometry.dispose()
+    this.choiceHaloMaterial.map?.dispose()
+    this.choiceHaloMaterial.dispose()
+    for (const halo of this.choiceHalos) this.scene.remove(halo)
     this.dragPartnerMarker.geometry.dispose()
     ;(this.dragPartnerMarker.material as THREE.Material).dispose()
     this.ghostGeometry.dispose()
@@ -907,6 +964,28 @@ export class GameRenderer {
       const view = ids[index] !== undefined ? this.tileViews.get(ids[index]) : undefined
       marker.visible = Boolean(view)
       if (view) marker.position.set(view.baseX, TILE_H + 0.36, view.baseZ)
+    })
+  }
+
+  private updateChoiceMarkers(ids: number[]): void {
+    while (this.choiceHalos.length < ids.length) {
+      const halo = new THREE.Mesh(this.choiceHaloGeometry, this.choiceHaloMaterial)
+      halo.rotation.x = -Math.PI / 2
+      halo.position.y = 0.012
+      halo.renderOrder = 20
+      this.choiceHalos.push(halo)
+      this.scene.add(halo)
+    }
+    this.choiceHalos.forEach((halo, index) => {
+      const view = ids[index] !== undefined ? this.tileViews.get(ids[index]) : undefined
+      halo.visible = Boolean(view)
+      if (view) {
+        halo.position.set(
+          view.baseX,
+          view.group.position.y + TILE_H / 2 + 0.018,
+          view.baseZ,
+        )
+      }
     })
   }
 

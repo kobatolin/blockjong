@@ -173,6 +173,58 @@ describe('drag flow', () => {
     if (result.kind !== 'matched') return
     expect(result.pair.map((tile) => tile.col).sort()).toEqual([0, 3])
   })
+
+  it('waits for a partner choice when the landing has multiple partners', () => {
+    const rows = ['..A..', '.....', 'A....', '.....', '..A..']
+    const session = sessionFrom(rows)
+    const before = boardSignature(session.getBoard())
+    const moved = tileAtRowCol(session.getBoard(), 2, 0)
+
+    const result = session.dragEnd(moved.id, 'right', 2)
+    expect(result.kind).toBe('choice')
+    if (result.kind !== 'choice') return
+    expect(result.candidates).toHaveLength(2)
+    expect(session.moveCount).toBe(0)
+    expect(session.historySize).toBe(0)
+    expect(boardSignature(session.getBoard())).toBe(before)
+
+    const chosen = result.candidates[0]
+    const matched = session.tap(chosen.row, chosen.col)
+    expect(matched.kind).toBe('choiceMatched')
+    if (matched.kind !== 'choiceMatched') return
+    expect(matched.pair.map((tile) => tile.id)).toContain(chosen.id)
+    expect(session.remaining).toBe(1)
+    expect(session.moveCount).toBe(1)
+    expect(session.undo()).toBe(true)
+    expect(boardSignature(session.getBoard())).toBe(before)
+  })
+
+  it('cancels a partner choice and returns the moved tile to its origin', () => {
+    const rows = ['..A..', '.....', 'A....', '.....', '..A..']
+    const session = sessionFrom(rows)
+    const before = boardSignature(session.getBoard())
+    const moved = tileAtRowCol(session.getBoard(), 2, 0)
+
+    expect(session.dragEnd(moved.id, 'right', 2).kind).toBe('choice')
+    const cancelled = session.tap(2, 1)
+    expect(cancelled.kind).toBe('choiceCancelled')
+    expect(session.remaining).toBe(3)
+    expect(session.moveCount).toBe(0)
+    expect(session.historySize).toBe(0)
+    expect(boardSignature(session.getBoard())).toBe(before)
+    expect(session.tileAt(2, 0)?.id).toBe(moved.id)
+  })
+
+  it('keeps the selected anchor as priority even with multiple partners', () => {
+    const rows = ['..A..', '.....', 'A....', '.....', '..A..']
+    const session = sessionFrom(rows)
+    session.tap(0, 2)
+    const moved = tileAtRowCol(session.getBoard(), 2, 0)
+    const result = session.dragEnd(moved.id, 'right', 2)
+    expect(result.kind).toBe('matched')
+    if (result.kind !== 'matched') return
+    expect(result.pair[1]).toMatchObject({ row: 0, col: 2 })
+  })
 })
 
 describe('undo and deadlock', () => {
