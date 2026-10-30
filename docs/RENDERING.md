@@ -261,7 +261,7 @@ const faceMat = new THREE.MeshBasicMaterial({ map: texture });
 
 ### 6.5 可调光照与牌面材质
 
-`SettingsPanel` 增加四个实时滑杆，数值显示在滑杆右侧并持久化到 `mahj.settings.v1`；`GameView` 监听 store 并调用 `GameRenderer.setLighting()`。
+`SettingsPanel` 增加四个实时滑杆，数值显示在滑杆右侧并持久化到 `mahj.settings.v1`；`GameView` 监听 store 并调用 `GameRenderer.setLighting()`。调试阶段对局右侧固定显示 `LightingPanel.vue`，复用同一组 store/滑杆，可折叠；面板只覆盖 HUD 右侧空白区，不拦截画布外的点击。
 
 | 控件 | store 字段 | 范围 | 默认 | 作用 |
 | --- | --- | --- | --- | --- |

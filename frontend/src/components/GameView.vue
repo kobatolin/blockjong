@@ -13,6 +13,7 @@ import { useGameStore } from '@/stores/game'
 import { buildShareUrl, copyText, writeUrlState } from '@/utils/url'
 import GameDialog from './GameDialog.vue'
 import HudBar from './HudBar.vue'
+import LightingPanel from './LightingPanel.vue'
 import SettingsPanel from './SettingsPanel.vue'
 import Toast from './Toast.vue'
 import TutorialOverlay from './TutorialOverlay.vue'
@@ -871,6 +872,8 @@ onBeforeUnmount(() => {
       @copy-link="copyLink"
       @cancel="cancelRestart"
     />
+
+    <LightingPanel />
 
     <SettingsPanel :open="settingsOpen" @close="closeSettings" />
 
