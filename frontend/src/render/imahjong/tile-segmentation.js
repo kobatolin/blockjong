@@ -64,6 +64,8 @@ const clipRectPath = (x, y, w, h) => {
   const bottom = (y + h) * HEIGHT;
   return `M${left} ${top}H${right}V${bottom}H${left}Z`;
 };
+const ellipsePath = (cx, cy, rx, ry, rotate = 0) =>
+  `M${cx + rx} ${cy}A${rx} ${ry} ${rotate} 1 1 ${cx - rx} ${cy}A${rx} ${ry} ${rotate} 1 1 ${cx + rx} ${cy}Z`;
 
 function dotSevenTangentClip() {
   const green = { x: .7055 * WIDTH, y: .3848 * HEIGHT };
@@ -144,9 +146,20 @@ function colorRecipe(id) {
     color: 'red',
     select: contour(index, { subpath, overlay: true }),
   }));
-  const redClippedContour = (index, clipPath) => ({
+  const inkSubpaths = (index, subpaths) => [{
+    color: 'ink',
+    select: contour(index, { subpaths, overlay: true }),
+  }];
+  const redHollowFlower = (outerIndex, outerSubpath, holeIndex, clipPath = null) => ({
     color: 'red',
-    select: contour(index, { overlay: true, clipPath }),
+    select: {
+      type: 'hollow',
+      outerIndex,
+      outerSubpath,
+      holeIndex,
+      clipPath,
+      overlay: true,
+    },
   });
 
   const flowerRecipes = {
@@ -157,12 +170,12 @@ function colorRecipe(id) {
       ink: [],
     },
     'flower-winter': {
-      red: [0, 1, 2, 8, 9, 10],
+      red: [8, 9, 10],
       ink: [],
       overlays: [
-        redClippedContour(3, clipRectPath(.08, .45, .3, .22)),
-        redClippedContour(6, clipRectPath(.08, .22, .39, .28)),
-        redClippedContour(7, clipRectPath(.56, .39, .36, .27)),
+        redHollowFlower(3, null, 0, clipRectPath(.08, .45, .3, .22)),
+        redHollowFlower(6, null, 1, clipRectPath(.08, .22, .39, .28)),
+        redHollowFlower(7, null, 2, clipRectPath(.56, .39, .36, .27)),
       ],
     },
     'flower-plum': {
@@ -171,9 +184,18 @@ function colorRecipe(id) {
       ink: [12, 13, 14, 15, 16],
     },
     'flower-orchid': {
-      red: [0, 1, 2, 3],
+      red: [1, 3],
       ink: [5, 6, 7, 8, 9, 10, 11],
-      overlays: [...redSubpaths(4, [1, 2])],
+      baseSubpaths: { 4: [0] },
+      baseClips: { 4: [`M0 0H${WIDTH}V${HEIGHT}H0Z ${ellipsePath(83.2, 100.3, 6.4, 4.8, -28)}`] },
+      // The 蘭 glyph contains counters formed across separate contours; clip all
+      // colored layers to the original HK silhouette so those counters stay open.
+      clipToSilhouette: true,
+      overlays: [
+        ...inkSubpaths(4, [3, 4]),
+        redHollowFlower(4, 1, 0),
+        redHollowFlower(4, 2, 2),
+      ],
     },
     'flower-bamboo': { red: [], ink: [5, 6, 7] },
     'flower-chrysanthemum': { red: [6, 7], ink: [17, 18, 19, 20] },
@@ -181,6 +203,9 @@ function colorRecipe(id) {
   const flower = flowerRecipes[id];
   return {
     base: 'green',
+    baseSubpaths: flower.baseSubpaths,
+    baseClips: flower.baseClips,
+    clipToSilhouette: flower.clipToSilhouette,
     rules: [
       ...redContours(flower.red),
       ...inkContours(flower.ink),
@@ -211,6 +236,13 @@ function vectorResult(entries, componentCount, recipe) {
 }
 
 function selectedSubpath(group, rule) {
+  if (rule.select.subpaths?.length) {
+    const combined = rule.select.subpaths
+      .map(subpath => group.sub[subpath])
+      .filter(Boolean)
+      .join(' ');
+    return combined ? new Path2D(combined) : group.path;
+  }
   if (rule.select.subpath === undefined || !group.subpaths.length) return group.path;
   const subpath = rule.select.subpath === 'last'
     ? group.subpaths.at(-1)
@@ -267,13 +299,39 @@ function buildVectorLayers(id, recipe) {
     return vectorResult(entries, groups.length, recipe);
   }
 
+  const hollowRules = recipe.rules.filter(rule => rule.select.type === 'hollow');
+  const hollowHoleIndexes = new Set(hollowRules.map(rule => rule.select.holeIndex));
+  const hollowOverlays = hollowRules.map(rule => {
+    const { outerIndex, outerSubpath, holeIndex, clipPath } = rule.select;
+    const outer = groups[outerIndex];
+    const hole = groups[holeIndex];
+    const outerPath = outerSubpath === null ? outer?.d : outer?.sub[outerSubpath];
+    if (!outer || !outerPath || !hole) return null;
+    return {
+      ...outer,
+      color: rule.color,
+      path: new Path2D(`${outerPath} ${hole.d}`),
+      fillRule: 'nonzero',
+      clip: clipPath ? { path: new Path2D(clipPath) } : null,
+    };
+  }).filter(Boolean);
+
   const assigned = groups.flatMap(group => {
+    if (hollowHoleIndexes.has(group.index)) return [];
     let color = recipe.base;
-    let path = group.path;
+    const baseSubpaths = recipe.baseSubpaths?.[group.index];
+    const baseHole = hollowRules.find(rule => rule.select.outerIndex === group.index)?.select.holeIndex;
+    const baseClipPath = recipe.baseClips?.[group.index];
+    const basePath = baseSubpaths
+      ? baseSubpaths.map(subpath => group.sub[subpath]).filter(Boolean).join(' ')
+      : group.d;
+    let path = new Path2D(baseHole !== undefined && !baseSubpaths
+      ? `${basePath} ${groups[baseHole].d}`
+      : basePath);
     let fillRule = 'nonzero';
     const overlays = [];
     recipe.rules.forEach(rule => {
-      if (!matches(group, rule.select)) return;
+      if (rule.select.type === 'hollow' || !matches(group, rule.select)) return;
       const clip = overlayClip(group, rule);
       if (rule.select.overlay || clip) {
         overlays.push({
@@ -289,8 +347,12 @@ function buildVectorLayers(id, recipe) {
       fillRule = rule.select.fillRule || 'nonzero';
       path = selectedSubpath(group, rule);
     });
-    return [{ ...group, color, path, fillRule, clip: null }, ...overlays];
+    const baseClip = baseClipPath
+      ? { path: new Path2D(baseClipPath), fillRule: 'evenodd' }
+      : null;
+    return [{ ...group, color, path, fillRule, clip: baseClip }, ...overlays];
   });
+  assigned.push(...hollowOverlays);
   return vectorResult(assigned, groups.length, recipe);
 }
 
@@ -381,6 +443,9 @@ export function getTileSegmentation(id) {
   const recipe = colorRecipe(id);
   const useRasterFallback = id.startsWith('flower-') && !HK_CONTOURS[id];
   const result = useRasterFallback ? buildFlowerLayers(id, recipe) : buildVectorLayers(id, recipe);
+  if (!useRasterFallback && recipe.clipToSilhouette) {
+    result.silhouettePath = new Path2D(HK_CONTOURS[id].map(group => group.d).join(' '));
+  }
   cache.set(id, result);
   return result;
 }

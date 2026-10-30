@@ -104,10 +104,13 @@ function drawTileBody(ctx, id, shadow) {
 }
 
 function drawSegmentedFace(ctx, id) {
-  const { layers } = getTileSegmentation(id);
+  const { layers, silhouettePath } = getTileSegmentation(id);
   const alignment = FACE_ALIGNMENT[id];
   ctx.save();
   if (alignment) ctx.translate(alignment.x, alignment.y);
+  // Some multi-contour flower glyphs (e.g. 蘭) need clipping to the original
+  // silhouette so the counters between separate contours stay open.
+  if (silhouettePath) ctx.clip(silhouettePath, 'nonzero');
   layers.forEach(layer => {
     if (layer.canvas) {
       ctx.drawImage(layer.canvas, 0, 0, DESIGN_W, DESIGN_H);
@@ -136,7 +139,7 @@ function drawSegmentedFace(ctx, id) {
       ctx.save();
       ctx.beginPath();
       if (clip.path) {
-        ctx.clip(clip.path);
+        ctx.clip(clip.path, clip.fillRule || 'nonzero');
       } else if (clip.axis === 'y') {
         ctx.rect(0, clip.min * DESIGN_H, DESIGN_W, (clip.max - clip.min) * DESIGN_H);
       } else {
