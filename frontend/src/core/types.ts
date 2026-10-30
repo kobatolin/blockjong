@@ -45,7 +45,6 @@ export interface GameSnapshot {
   board: BoardSnapshot;
   remaining: number;
   selectedId: number | null;
-  moves: number;
   seed: number;
   seedSource: SeedSource;
   /** Remaining "move one tile" item uses. */

@@ -21,6 +21,7 @@ interface ParamDef {
 
 const emit = defineEmits<{ applyTuning: [RenderTuning] }>()
 const tuning = reactive<RenderTuning>({ ...DEFAULT_RENDER_TUNING })
+const visible = ref(false)
 const collapsed = ref(false)
 let colorTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -141,21 +142,46 @@ onBeforeUnmount(clearColorTimer)
 </script>
 
 <template>
-  <aside class="lighting-debug" :class="{ collapsed }" aria-label="渲染参数调试面板">
+  <button
+    v-if="!visible"
+    type="button"
+    class="render-launcher"
+    aria-label="打开渲染参数"
+    @click="visible = true"
+  >
+    渲染
+  </button>
+
+  <aside
+    v-if="visible"
+    class="lighting-debug"
+    :class="{ collapsed }"
+    aria-label="渲染参数调试面板"
+  >
     <header>
       <div class="title">
         <span class="eyebrow">RENDER DEBUG</span>
         <strong>渲染参数</strong>
       </div>
-      <button
-        type="button"
-        class="collapse"
-        :aria-label="collapsed ? '展开渲染参数' : '收起渲染参数'"
-        :aria-expanded="!collapsed"
-        @click="collapsed = !collapsed"
-      >
-        {{ collapsed ? '＋' : '－' }}
-      </button>
+      <div class="header-actions">
+        <button
+          type="button"
+          class="collapse"
+          :aria-label="collapsed ? '展开渲染参数' : '收起渲染参数'"
+          :aria-expanded="!collapsed"
+          @click="collapsed = !collapsed"
+        >
+          {{ collapsed ? '＋' : '－' }}
+        </button>
+        <button
+          type="button"
+          class="collapse"
+          aria-label="关闭渲染参数"
+          @click="visible = false"
+        >
+          ×
+        </button>
+      </div>
     </header>
 
     <div v-if="!collapsed" class="body">
@@ -208,6 +234,30 @@ onBeforeUnmount(clearColorTimer)
 </template>
 
 <style scoped>
+.render-launcher {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  z-index: 25;
+  padding: 12px 7px;
+  border: 1px solid rgba(217, 179, 108, 0.24);
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+  background: rgba(7, 18, 15, 0.72);
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  writing-mode: vertical-rl;
+  cursor: pointer;
+  transform: translateY(-50%);
+  backdrop-filter: blur(8px);
+}
+
+.render-launcher:hover {
+  border-color: rgba(217, 179, 108, 0.55);
+  color: var(--ivory);
+}
+
 .lighting-debug {
   position: fixed;
   top: 92px;
@@ -261,6 +311,11 @@ header {
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.12em;
+}
+
+.header-actions {
+  display: flex;
+  gap: 6px;
 }
 
 .collapse {

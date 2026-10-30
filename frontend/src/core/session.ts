@@ -204,7 +204,6 @@ export class GameSession {
       board: cloneBoardDeep(this.board),
       remaining: countTiles(this.board),
       selectedId: this.selectedId,
-      moves: this.moves,
       seed: this.seed,
       seedSource: this.seedSource,
       itemUses: this.itemUses,

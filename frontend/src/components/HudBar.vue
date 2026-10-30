@@ -5,7 +5,6 @@ const props = defineProps<{
   modeName: string
   remaining: number
   total: number
-  moves: number
   elapsedMs: number
   seedLabel: string
   isCustom: boolean
@@ -62,10 +61,6 @@ const time = () => formatTime(props.elapsedMs)
       <div class="stat">
         <b class="mono">{{ time() }}</b>
         <span>用时</span>
-      </div>
-      <div class="stat">
-        <b>{{ props.moves }}</b>
-        <span>步数</span>
       </div>
     </div>
 

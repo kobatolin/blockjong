@@ -36,6 +36,9 @@ const emit = defineEmits<{
 const store = useGameStore()
 const settingsOpen = ref(false)
 const selectedMode = ref<ModeId>(props.initialMode ?? 'easy')
+const seedOpen = ref(
+  props.initialSeed !== null && props.initialSeed !== undefined,
+)
 const seedText = ref(
   props.initialSeed !== null && props.initialSeed !== undefined
     ? formatSeedHex(props.initialSeed)
@@ -45,7 +48,6 @@ const seedText = ref(
 const parsed = computed(() => parseSeedInput(seedText.value))
 const seedError = computed(() => (parsed.value.ok ? '' : parsed.value.error))
 const canStart = computed(() => parsed.value.ok)
-const selectedModeName = computed(() => MODE_CONFIGS[selectedMode.value].name)
 
 const seedPreview = computed(() => {
   if (!parsed.value.ok) return parsed.value.error
@@ -59,13 +61,6 @@ const modeCards = computed(() =>
     return {
       ...config,
       total: totalTilesForMode(id),
-      record: store.records[id],
-      suits:
-        id === 'easy'
-          ? '筒 · 索'
-          : id === 'medium'
-            ? '筒 · 索 · 万'
-            : '筒 · 索 · 万 · 字牌 · 花牌',
       visual:
         id === 'easy' ? '筒' : id === 'medium' ? '索' : '萬',
     }
@@ -74,11 +69,8 @@ const modeCards = computed(() =>
 
 function recordText(mode: ModeId): string {
   const record = store.records[mode]
-  if (record.wins === 0) return '尚未通关'
-  const time =
-    record.bestTimeMs === null ? '—' : formatTime(record.bestTimeMs)
-  const moves = record.bestMoves === null ? '—' : `${record.bestMoves} 步`
-  return `最佳 ${time} · ${moves} · ${record.wins} 胜`
+  if (record.wins === 0 || record.bestTimeMs === null) return ''
+  return `最佳 ${formatTime(record.bestTimeMs)}`
 }
 
 function startGame(): void {
@@ -104,11 +96,8 @@ function startGame(): void {
     <SettingsPanel :open="settingsOpen" @close="settingsOpen = false" />
     <div class="menu-inner">
       <header class="hero">
-        <p class="eyebrow">MAHJONG SLIDE · 3D</p>
-        <h1>麻将消消乐</h1>
-        <p class="tagline">
-          点选两张通路同牌，或按住一张牌，带着连续牌串寻找新的落点。
-        </p>
+        <p class="eyebrow">BLOCKJONG · 3D</p>
+        <h1>挡通关</h1>
       </header>
 
       <section class="mode-section" aria-label="选择模式">
@@ -132,17 +121,30 @@ function startGame(): void {
               {{ mode.name }}
               <span class="mode-size">{{ mode.rows }} × {{ mode.cols }}</span>
             </span>
-            <span class="mode-meta">{{ mode.total }} 张 · {{ mode.suits }}</span>
-            <span class="mode-record">{{ recordText(mode.id) }}</span>
+            <span class="mode-meta">{{ mode.total }} 张</span>
+            <span v-if="store.records[mode.id].wins > 0" class="mode-record">
+              {{ recordText(mode.id) }}
+            </span>
           </span>
         </button>
       </section>
 
       <section class="launch" @keydown.enter="startGame">
-        <div class="seed-row">
-          <SeedInput v-model="seedText" :error="seedError" />
-          <div class="seed-preview" :class="{ error: !parsed.ok }">
-            {{ seedPreview }}
+        <div class="launch-main">
+          <button
+            type="button"
+            class="seed-toggle"
+            :aria-expanded="seedOpen"
+            @click="seedOpen = !seedOpen"
+          >
+            自定义种子
+            <span aria-hidden="true">{{ seedOpen ? '－' : '＋' }}</span>
+          </button>
+          <div v-if="seedOpen" class="seed-body">
+            <SeedInput v-model="seedText" :error="seedError" />
+            <div class="seed-preview" :class="{ error: !parsed.ok }">
+              {{ seedPreview }}
+            </div>
           </div>
         </div>
         <button
@@ -151,16 +153,10 @@ function startGame(): void {
           :disabled="!canStart"
           @click="startGame"
         >
-          <span>开始 · {{ selectedModeName }}</span>
+          <span>开始游戏</span>
           <span class="start-arrow" aria-hidden="true">→</span>
         </button>
       </section>
-
-      <footer class="menu-footer">
-        <span>{{ store.serverVersion ? `服务端 v${store.serverVersion}` : '离线模式' }}</span>
-        <span class="sep">·</span>
-        <span>同模式 + 同种子可复现布局</span>
-      </footer>
     </div>
   </main>
 </template>
@@ -195,11 +191,13 @@ function startGame(): void {
 
 .menu-inner {
   position: relative;
-  width: min(1080px, calc(100% - 48px));
-  margin: 0 auto;
-  padding: clamp(36px, 7vh, 84px) 0 40px;
   display: flex;
+  width: min(1080px, calc(100% - 48px));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: clamp(32px, 5vh, 60px) 0;
   flex-direction: column;
+  justify-content: center;
   gap: clamp(26px, 4vh, 42px);
 }
 
@@ -221,15 +219,6 @@ h1 {
   font-weight: 600;
   letter-spacing: 0.18em;
   text-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
-}
-
-.tagline {
-  max-width: 560px;
-  margin: 18px auto 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.9;
-  letter-spacing: 0.05em;
 }
 
 .mode-section {
@@ -348,10 +337,34 @@ h1 {
   box-shadow: var(--shadow-panel);
 }
 
-.seed-row {
+.launch-main {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
+}
+
+.seed-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.seed-toggle {
+  align-self: flex-start;
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(217, 179, 108, 0.22);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+.seed-toggle:hover {
+  border-color: rgba(217, 179, 108, 0.55);
+  color: var(--ivory-dim);
 }
 
 .seed-preview {
@@ -375,19 +388,6 @@ h1 {
 .start-arrow {
   font-size: 18px;
   line-height: 1;
-}
-
-.menu-footer {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  color: rgba(143, 168, 159, 0.7);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-}
-
-.sep {
-  opacity: 0.5;
 }
 
 @media (max-width: 900px) {
@@ -415,21 +415,12 @@ h1 {
     font-size: 38px;
   }
 
-  .tagline {
-    font-size: 12px;
-  }
-
   .mode-visual {
     flex-basis: 64px;
   }
 
   .mode-title {
     font-size: 18px;
-  }
-
-  .menu-footer {
-    flex-wrap: wrap;
-    text-align: center;
   }
 }
 </style>

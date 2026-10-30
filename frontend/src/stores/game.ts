@@ -5,7 +5,6 @@ import type { ModeId } from '@/core/types'
 
 export interface ModeRecord {
   bestTimeMs: number | null
-  bestMoves: number | null
   wins: number
 }
 
@@ -99,7 +98,7 @@ function persistSettings(settings: GameSettings): void {
 }
 
 function emptyRecord(): ModeRecord {
-  return { bestTimeMs: null, bestMoves: null, wins: 0 }
+  return { bestTimeMs: null, wins: 0 }
 }
 
 function emptyRecords(): Records {
@@ -123,10 +122,6 @@ function loadRecords(): Records {
         bestTimeMs:
           typeof value.bestTimeMs === 'number' && Number.isFinite(value.bestTimeMs)
             ? value.bestTimeMs
-            : null,
-        bestMoves:
-          typeof value.bestMoves === 'number' && Number.isFinite(value.bestMoves)
-            ? value.bestMoves
             : null,
         wins: typeof value.wins === 'number' ? value.wins : 0,
       }
@@ -152,15 +147,12 @@ export const useGameStore = defineStore('game', {
     ...loadSettings(),
   }),
   actions: {
-    recordWin(mode: ModeId, timeMs: number, moves: number) {
+    recordWin(mode: ModeId, timeMs: number) {
       const current = this.records[mode] ?? emptyRecord()
       const bestTime =
         current.bestTimeMs === null ? timeMs : Math.min(current.bestTimeMs, timeMs)
-      const bestMoves =
-        current.bestMoves === null ? moves : Math.min(current.bestMoves, moves)
       this.records[mode] = {
         bestTimeMs: bestTime,
-        bestMoves: bestMoves,
         wins: current.wins + 1,
       }
       persistRecords(this.records)

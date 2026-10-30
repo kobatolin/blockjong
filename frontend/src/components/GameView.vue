@@ -208,7 +208,7 @@ function handleWon(): void {
   sfx.win()
   const finalTime = elapsedMs.value
   if (!recorded && session.seedSource === 'random') {
-    store.recordWin(session.mode, finalTime, snapshot.value.moves)
+    store.recordWin(session.mode, finalTime)
     recorded = true
   }
   dialog.value = 'won'
@@ -971,7 +971,6 @@ onBeforeUnmount(() => {
       :mode-name="config.name"
       :remaining="snapshot.remaining"
       :total="total"
-      :moves="snapshot.moves"
       :elapsed-ms="elapsedMs"
       :seed-label="seedLabel"
       :is-custom="isCustom"
@@ -996,7 +995,6 @@ onBeforeUnmount(() => {
     <GameDialog
       :kind="dialog"
       :time-ms="elapsedMs"
-      :moves="snapshot.moves"
       :remaining="snapshot.remaining"
       :seed-label="seedLabel"
       :is-custom="isCustom"

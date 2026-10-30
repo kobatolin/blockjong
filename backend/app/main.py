@@ -13,7 +13,7 @@ from app.config import FRONTEND_DIST, SERVE_FRONTEND
 from app.routers import assets, config as config_router
 from app.version import __version__
 
-app = FastAPI(title="mahj", version=__version__)
+app = FastAPI(title="Blockjong", version=__version__)
 
 # The Vite dev server runs on a different origin during development.
 app.add_middleware(

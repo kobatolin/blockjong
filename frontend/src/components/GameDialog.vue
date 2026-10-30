@@ -7,7 +7,6 @@ type DialogKind = 'won' | 'deadlock' | 'pause' | 'restart'
 const props = defineProps<{
   kind: DialogKind | null
   timeMs: number
-  moves: number
   remaining: number
   seedLabel: string
   isCustom: boolean
@@ -79,10 +78,6 @@ const subtitle = computed(() => {
           <div>
             <b class="mono">{{ formatTime(props.timeMs) }}</b>
             <span>用时</span>
-          </div>
-          <div>
-            <b>{{ props.moves }}</b>
-            <span>步数</span>
           </div>
           <div>
             <b>{{ props.remaining }}</b>
@@ -195,7 +190,7 @@ h2 {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin: 24px 0 18px;
 }
