@@ -61,6 +61,32 @@ describe('tap flow', () => {
     expect(session.remaining).toBe(0)
     expect(session.undo()).toBe(false)
   })
+
+  it('auto-slides a single tile when click-click can complete the pair', () => {
+    const session = sessionFrom(['A..', '..A', 'XX.'])
+    expect(session.tap(0, 0)).toMatchObject({ kind: 'selected' })
+    const result = session.tap(1, 2)
+    expect(result.kind).toBe('assisted')
+    if (result.kind !== 'assisted') throw new Error('expected assisted tap')
+    expect(result.moved).toHaveLength(1)
+    expect(result.k).toBeGreaterThan(0)
+    expect(session.remaining).toBe(2)
+    expect(session.moveCount).toBe(1)
+    expect(session.selected).toBeNull()
+    expect(session.phaseNow).toBe('idle')
+    expect(session.undo()).toBe(true)
+    expect(session.remaining).toBe(4)
+    expect(session.moveCount).toBe(0)
+  })
+
+  it('does not auto-slide when the pair needs a multi-tile segment', () => {
+    const session = sessionFrom(['XX....', '.AC.A.', '......'])
+    session.tap(1, 1)
+    const result = session.tap(1, 4)
+    expect(result).toMatchObject({ kind: 'switched', reason: 'blocked' })
+    expect(session.remaining).toBe(5)
+    expect(session.selected).toBe(tileAtRowCol(session.getBoard(), 1, 4).id)
+  })
 })
 
 describe('drag flow', () => {

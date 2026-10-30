@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { boardSignature, tileById } from '@/core/board'
-import { findAnyDrag, segment, type AnyMove } from '@/core/drag'
+import { findAnyDrag, findAssistedTap, segment, type AnyMove } from '@/core/drag'
 import { MODE_CONFIGS, totalTilesForMode } from '@/core/kinds'
 import { findVisiblePartners } from '@/core/rules'
 import { formatSeed, formatSeedHex, randomSeed } from '@/core/seed'
@@ -44,6 +44,12 @@ interface MahjDebugApi {
     kMax: number
     partnerId: number | null
     moved: Array<{ id: number; row: number; col: number }>
+  } | null
+  assistMove: () => {
+    a: { id: number; row: number; col: number }
+    b: { id: number; row: number; col: number }
+    dir: Dir
+    k: number
   } | null
   tap: (row: number, col: number) => void
   drag: (tileId: number, dir: Dir, k: number) => void
@@ -194,9 +200,32 @@ function handleTap(_tileId: number, row: number, col: number): void {
   const result = session.tap(row, col)
   if (debugMode) console.info('[mahj] tap', { row, col, kind: result.kind })
   if (result.kind === 'selected') sfx.select()
-  else if (result.kind === 'matched') sfx.match()
+  else if (result.kind === 'matched' || result.kind === 'assisted') sfx.match()
   else if (result.kind === 'switched') sfx.revert()
   else if (result.kind === 'cleared' && result.hadSelection) sfx.click()
+  if (result.kind === 'assisted') {
+    busy.value = true
+    renderer?.setInteractive(false)
+    if (!renderer) {
+      busy.value = false
+      syncView()
+      return
+    }
+    renderer.playAssistedMatch(result.moved, result.pair, result.board, () => {
+      busy.value = false
+      syncView()
+      renderer?.setInteractive(dialog.value === null)
+      if (debugMode) {
+        console.info('[mahj] assistedTapDone', {
+          dir: result.dir,
+          k: result.k,
+          busy: busy.value,
+          dialog: dialog.value,
+        })
+      }
+    })
+    return
+  }
   if (result.kind === 'matched') {
     busy.value = true
     renderer?.setInteractive(false)
@@ -608,6 +637,24 @@ function installDebugBridge(): void {
           col: tile.col,
         })),
       }
+    },
+    assistMove: () => {
+      const board = session.getBoard()
+      const tiles = board.cells.filter((tile): tile is NonNullable<typeof tile> => Boolean(tile))
+      for (let i = 0; i < tiles.length; i += 1) {
+        for (let j = i + 1; j < tiles.length; j += 1) {
+          const move = findAssistedTap(board, tiles[i], tiles[j])
+          if (move) {
+            return {
+              a: { id: tiles[i].id, row: tiles[i].row, col: tiles[i].col },
+              b: { id: tiles[j].id, row: tiles[j].row, col: tiles[j].col },
+              dir: move.dir,
+              k: move.k,
+            }
+          }
+        }
+      }
+      return null
     },
     tap: (row, col) => handleTap(-1, row, col),
     drag: (tileId, dir, k) => handleDragEnd(tileId, dir, k),

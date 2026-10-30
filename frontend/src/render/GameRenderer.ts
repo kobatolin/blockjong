@@ -421,8 +421,60 @@ export class GameRenderer {
     this.updateSelectionVisuals()
   }
 
-  playMatch(pair: [Tile, Tile], board: BoardSnapshot, done: () => void): void {
-    const views = pair
+  playAssistedMatch(
+    moved: Tile[],
+    pair: [Tile, Tile],
+    board: BoardSnapshot,
+    done: () => void,
+  ): void {
+    const targets: Array<{
+      view: TileView
+      fromX: number
+      fromZ: number
+      toX: number
+      toZ: number
+    }> = []
+    for (const tile of moved) {
+      const view = this.tileViews.get(tile.id)
+      if (!view) continue
+      targets.push({
+        view,
+        fromX: view.group.position.x,
+        fromZ: view.group.position.z,
+        toX: tileX(tile.col, this.cols),
+        toZ: tileZ(tile.row, this.rows),
+      })
+    }
+
+    this.clearGhosts()
+    this.dragPartnerMarker.visible = false
+    this.selectionHalo.visible = false
+
+    if (targets.length === 0) {
+      this.playMatch(pair, board, done)
+      return
+    }
+
+    this.tweens.add({
+      duration: this.reducedMotion ? 0.08 : 0.18,
+      ease: (t) => 1 - Math.pow(1 - t, 3),
+      onUpdate: (t) => {
+        for (const target of targets) {
+          target.view.group.position.x = target.fromX + (target.toX - target.fromX) * t
+          target.view.group.position.z = target.fromZ + (target.toZ - target.fromZ) * t
+        }
+      },
+      onComplete: () => {
+        for (const target of targets) {
+          target.view.group.position.x = target.toX
+          target.view.group.position.z = target.toZ
+        }
+        this.playMatch(pair, board, done)
+      },
+    })
+  }
+
+  playMatch(pair: [Tile, Tile], board: BoardSnapshot, done: () => void): void {    const views = pair
       .map((tile) => this.tileViews.get(tile.id))
       .filter((view): view is TileView => Boolean(view))
     this.clearGhosts()

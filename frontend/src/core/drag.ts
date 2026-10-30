@@ -1,5 +1,5 @@
 /** Drag segment, slide range and landing-pair resolution. */
-import { cloneBoard, inBounds, listTiles, moveTiles, tileAt, tileById } from './board'
+import { cloneBoard, inBounds, listTiles, moveTiles, removeTilesById, tileAt, tileById } from './board'
 import { compatible, findVisiblePartners, manhattan, visible } from './rules'
 import type { BoardSnapshot, Dir, Tile } from './types'
 
@@ -165,6 +165,69 @@ export function resolveDrag(
     dragged,
     partner,
   }
+}
+
+export interface AssistedTapMove {
+  mover: Tile
+  dir: Dir
+  k: number
+  partner: Tile
+  moved: Tile[]
+  preview: BoardSnapshot
+  board: BoardSnapshot
+}
+
+/**
+ * A click-click shortcut for a pair that needs exactly one single-tile slide.
+ * The moving segment must contain only the pressed tile; a multi-tile push
+ * still has to be dragged manually.
+ */
+export function findAssistedTap(
+  board: BoardSnapshot,
+  a: Tile,
+  b: Tile,
+): AssistedTapMove | null {
+  if (a.id === b.id || !compatible(a, b) || visible(board, a, b)) return null
+
+  let best: AssistedTapMove | null = null
+  for (const [mover, other] of [
+    [a, b],
+    [b, a],
+  ] as const) {
+    for (const dir of DIRS) {
+      const tiles = segment(board, mover, dir)
+      if (tiles.length !== 1) continue
+      const kMax = maxSlide(board, tiles, dir)
+      for (let k = 1; k <= kMax; k += 1) {
+        const resolution = resolveDrag(board, mover, dir, k, other.id)
+        if (
+          resolution.kind !== 'match' ||
+          !resolution.dragged ||
+          resolution.partner?.id !== other.id
+        ) {
+          continue
+        }
+        const moved = resolution.moved
+        const nextBoard = removeTilesById(
+          resolution.preview,
+          new Set([resolution.dragged.id, resolution.partner.id]),
+        )
+        const candidate: AssistedTapMove = {
+          mover,
+          dir,
+          k: resolution.k,
+          partner: resolution.partner,
+          moved,
+          preview: resolution.preview,
+          board: nextBoard,
+        }
+        if (!best || candidate.k < best.k) best = candidate
+      }
+      if (best) break
+    }
+    if (best) break
+  }
+  return best
 }
 
 export interface DragMove {

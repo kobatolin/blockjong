@@ -11,7 +11,7 @@ import {
   tileAt,
   tileById,
 } from './board'
-import { DIRS, findAnyMove, maxSlide, resolveDrag, segment } from './drag'
+import { DIRS, findAnyMove, findAssistedTap, maxSlide, resolveDrag, segment } from './drag'
 import type { DragResolution } from './drag'
 import { generateBoard } from './generate'
 import { compatible, visible } from './rules'
@@ -44,6 +44,14 @@ export type TapResult =
   | { kind: 'deselected' }
   | { kind: 'switched'; tileId: number; reason: 'blocked' | 'mismatch' }
   | { kind: 'matched'; pair: [Tile, Tile]; board: BoardSnapshot }
+  | {
+      kind: 'assisted'
+      pair: [Tile, Tile]
+      moved: Tile[]
+      dir: Dir
+      k: number
+      board: BoardSnapshot
+    }
 
 export type DragEndResult =
   | { kind: 'ignored' }
@@ -173,6 +181,25 @@ export class GameSession {
         kind: 'matched',
         pair: [anchor, target],
         board: this.snapshotBoard(),
+      }
+    }
+
+    if (anchor) {
+      const assisted = findAssistedTap(this.board, anchor, target)
+      if (assisted) {
+        this.pushHistory()
+        this.board = assisted.board
+        this.moves += 1
+        this.selectedId = null
+        this.finishMove()
+        return {
+          kind: 'assisted',
+          pair: [assisted.moved[0] ?? assisted.mover, assisted.partner],
+          moved: assisted.moved,
+          dir: assisted.dir,
+          k: assisted.k,
+          board: this.snapshotBoard(),
+        }
       }
     }
 
