@@ -12,7 +12,7 @@
 | `docs/PROJECT_PLAN.md`（本文） | 目标、技术选型、架构、模块、路线、风险 |
 | `docs/GAME_RULES.md` | 规则的形式化定义、边界情况、算法伪代码与图例 |
 | `docs/RENDERING.md` | Three.js 场景、牌面生成、光照、动效、性能预算 |
-| `docs/ENVIRONMENT.md` | 本机环境检查结果与开发约束 |
+| `docs/DEVELOPMENT.md` | 环境要求、安装/构建/测试命令、受限环境规避 |
 | `README.md` | 项目简介与（规划中的）运行方式 |
 | `AGENTS.md` | 后续 AI/开发者协作约定与架构不变量 |
 
@@ -489,7 +489,7 @@ mahj/
 │   ├── PROJECT_PLAN.md
 │   ├── GAME_RULES.md
 │   ├── RENDERING.md
-│   └── ENVIRONMENT.md
+│   └── DEVELOPMENT.md
 ├── backend/
 │   ├── app/
 │   │   ├── main.py
@@ -605,7 +605,7 @@ mahj/
 ### 13.1 自动化
 
 - `cd frontend && npm run test`：Vitest 跑 `tests/**`（50 用例）。
-- `cd frontend && npm run build`：Vite 生产构建（类型检查单独跑，见 `ENVIRONMENT.md`）。
+- `cd frontend && npm run build`：Vite 生产构建（类型检查单独跑，见 `DEVELOPMENT.md`）。
 - `cd backend && python -m py_compile app/main.py app/config.py app/routers/*.py`。
 - `scripts\build.cmd -Test`：单测 + 构建 + 后端 `py_compile` 一键验收。
 - 可选：`python -m pytest`（后端仅接口冒烟，非重点）。
@@ -657,7 +657,7 @@ mahj/
 | 3D 性能不足（低端核显/手机） | 掉帧 | DPR 上限、阴影档位、粒子数量、自适应降级；draw call 预算监控 |
 | 牌面中文字体缺失/差异 | 字牌显示错乱 | 字体回退链 + Canvas 测量兜底；后续可内置子集字体 |
 | Node/Vite/TS 版本快速演进 | 构建失败 | 锁定版本与 lockfile；升级前跑构建+单测 |
-| sandbox 下 npm/pip 缓存不可写 | 依赖装不上 | 项目内缓存目录（`.npm-cache`、`.uv-cache`）；见 `ENVIRONMENT.md` |
+| sandbox 下 npm/pip 缓存不可写 | 依赖装不上 | 项目内缓存目录（`.npm-cache`、`.uv-cache`）；见 `DEVELOPMENT.md` |
 | 无浏览器自动化（本会话） | 无法自动截图验收 | 提供 WebGL 检查页与手动回归矩阵；必要时切完全权限后跑 Playwright |
 
 ---
@@ -685,16 +685,14 @@ mahj/
 
 ---
 
-## 16. 环境检查摘要
+## 16. 开发环境
 
-详见 `docs/ENVIRONMENT.md`。关键结论：
+要求、安装与命令见 `docs/DEVELOPMENT.md`。要点：
 
-- Windows 10/11；工作区 `D:\workspace\mahj`；磁盘可用约 180GB。
-- Node.js 24.14.0、npm 11.9.0、Git 2.53.0、Python 3.13.5 可用；**pnpm 未安装**，统一用 npm。
-- npm registry 可访问；但用户级缓存目录被当前会话沙箱拒绝，需用项目内 `.npm-cache`。
-- Python 侧 fastapi/uvicorn/pydantic 尚未安装；`uv` 的用户级缓存同样受限，需 `UV_CACHE_DIR` 指向项目内。
-- Edge 已安装；会话沙箱无法启动浏览器进程，WebGL 需在真实浏览器中用 `scripts/check-webgl.html` 验证。
-- 工作区首次写权限异常已通过一次授权修复，备份位于工作区同级的 `mahj-acl-recovery` 目录（仓库之外）。
+- Node.js 24 + npm 11 + Python 3.13；**统一用 npm**（不引入 pnpm）。
+- 需要 WebGL2 浏览器（Edge/Chrome 最新版）；牌面/渲染依赖真实 GPU。
+- 受限环境（DSH 沙箱）使用项目内缓存与 `dev:sandbox` / `build:sandbox` / `test:sandbox`；普通环境直接用 `dev` / `build` / `test`。
+- 一次性的机器审计与权限修复记录不进入仓库。
 
 ---
 

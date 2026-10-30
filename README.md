@@ -76,7 +76,7 @@
 | [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) | 目标、架构、模块、里程碑、风险、待确认决策 |
 | [`docs/GAME_RULES.md`](docs/GAME_RULES.md) | 规则的形式化定义、算法、图例、测试矩阵 |
 | [`docs/RENDERING.md`](docs/RENDERING.md) | 3D 场景、牌面生成、光照、动效、性能预算 |
-| [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) | 本机环境检查与开发约束 |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | 环境要求、安装/构建/测试命令、受限环境规避 |
 | [`AGENTS.md`](AGENTS.md) | 协作约定与架构不变量 |
 
 ## 开发运行
@@ -102,7 +102,7 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 .\.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 ```
 
-> 本会话/DSH 沙箱中请用 `npm run dev:sandbox`、`npm run build:sandbox`、`npm run test:sandbox`，以及 `scripts\dev.cmd -Sandbox` / `scripts\build.cmd -Sandbox`；普通环境直接用 `dev/build/test` 和 `scripts\dev.cmd` / `scripts\build.cmd`。原因见 [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)。
+> 本会话/DSH 沙箱中请用 `npm run dev:sandbox`、`npm run build:sandbox`、`npm run test:sandbox`，以及 `scripts\dev.cmd -Sandbox` / `scripts\build.cmd -Sandbox`；普通环境直接用 `dev/build/test` 和 `scripts\dev.cmd` / `scripts\build.cmd`。原因见 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)。
 
 生产构建：
 
@@ -185,7 +185,7 @@ mahj/
 - Python ≥ 3.11（实测 3.13.5）
 - 支持 WebGL2 的浏览器（Edge / Chrome 最新版）
 
-当前会话的 npm/pip 缓存目录默认不可写，需使用项目内缓存（`.npm-cache`、`.pip-cache`）；普通沙箱限制浏览器进程，完整权限下可用 Edge + Playwright 自动验收（见 [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)）。
+当前会话的 npm/pip 缓存目录默认不可写，需使用项目内缓存（`.npm-cache`、`.pip-cache`）；普通沙箱限制浏览器进程，完整权限下可用 Edge + Playwright 自动验收（见 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)）。
 
 ## 许可
 

@@ -23,7 +23,7 @@ $frontend = Join-Path $root 'frontend'
 $python = Join-Path $backend '.venv\Scripts\python.exe'
 
 if (-not (Test-Path $python)) {
-  throw "Missing $python. Create the backend venv first (see docs/ENVIRONMENT.md)."
+  throw "Missing $python. Create the backend venv first (see docs/DEVELOPMENT.md)."
 }
 if (-not (Test-Path (Join-Path $frontend 'node_modules'))) {
   throw "Missing frontend/node_modules. Run npm install first (see README.md)."

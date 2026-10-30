@@ -13,7 +13,7 @@
   1. `docs/GAME_RULES.md` —— 规则唯一权威来源；
   2. `docs/PROJECT_PLAN.md` —— 架构、模块、路线；
   3. `docs/RENDERING.md` —— 3D 与牌面方案；
-  4. `docs/ENVIRONMENT.md` —— 本机约束。
+  4. `docs/DEVELOPMENT.md` —— 环境要求、命令与沙箱限制。
 
 ## 命令
 
@@ -117,6 +117,6 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 
 - 规则/数值变化 → 更新 `docs/GAME_RULES.md`，再改实现与测试。
 - 技术栈/目录/里程碑变化 → 更新 `docs/PROJECT_PLAN.md`。
-- 环境/依赖/沙箱限制变化 → 更新 `docs/ENVIRONMENT.md`。
+- 环境/依赖/沙箱限制变化 → 更新 `docs/DEVELOPMENT.md`。
 - 新增坑或约定 → 更新本文件。
-- 文档中的版本号以 `docs/ENVIRONMENT.md` 实测为准。
+- 文档中的版本号以 `docs/DEVELOPMENT.md` 实测为准。
