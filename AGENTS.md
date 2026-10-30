@@ -85,7 +85,7 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 - **HMR / 重开**：`GameRenderer` 必须在 `onBeforeUnmount` 调用 `dispose()`（几何、材质、纹理、renderer、canvas），否则多次挂载会泄漏 WebGL context。
 - **响应式**：不要把 Three.js 对象放进 Vue `reactive`/Pinia 深层响应式；用普通变量或 `shallowRef`。
 - **纹理颜色空间**：CanvasTexture 必须设 `SRGBColorSpace`，否则牌面发灰/过曝。
-- **牌面**：当前使用 `src/render/imahjong/` 的 V2 轮廓管线（`hk-contours.js` + `tile-segmentation.js` + `tile-renderer.js`）。牌面在运行时**不加载字体**，不要重新引入 `fillText` 牌面；源字体与 M+ 授权在 `src/assets/fonts/`，`hk-contours.js` 是生成产物。
+- **牌面**：当前使用 `src/render/imahjong/` 的 V3 轮廓管线（`hk-contours.js` + `tile-segmentation.js` + `tile-renderer.js`）。牌面在运行时**不加载字体**，不要重新引入 `fillText` 牌面；源字体与 M+ 授权在 `src/assets/fonts/`，`hk-contours.js` 是生成产物。V3 相对 V2 的差异：花牌 `baseSubpaths`/`baseClips`/`clipToSilhouette`/hollow 轮廓与冬季、蘭配方修正；筒子 2/4/5 重新配色（二筒上下异色、四/五筒按对角线分组、五筒中心红），详见 `docs/RENDERING.md` §7.11.1。筒子只用 ink/green，红色仅限既有中心强调，不要加蓝色。
 - **牌面外框**：轮廓数据已剔除整牌边框；边框由 3D 牌体承担。白板内框在 `facePainter.ts` 里单独补画，否则会空白。
 - **牌面光照**：牌面用 `MeshPhysicalMaterial`（`map` + `normalMap`、无 `emissive`），干净亚克力底 + 深色填漆；独立高程图生成法线，阴刻高度同时控制 normalScale 与烘焙凹槽暗边。`TileFactory.setFaceHeight()` 重新生成 42 张牌面 map/normalMap；牌面边缘另有一层只覆盖边框的 additive 高光，不能改成覆盖整张牌面的白色反光层，否则会洗掉刻痕对比度。
 - **拾取坐标**：NDC 用 `canvas.getBoundingClientRect()`，不是 `window.innerWidth`。

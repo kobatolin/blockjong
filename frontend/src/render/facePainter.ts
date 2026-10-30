@@ -1,5 +1,5 @@
 /**
- * Tile faces from the V2 I.Mahjong-HK contour/color pipeline.
+ * Tile faces from the V3 I.Mahjong-HK contour/color pipeline.
  * The 3D tile body stays in TileFactory; this only bakes the printed face.
  */
 import * as THREE from 'three'
@@ -15,7 +15,7 @@ const DESIGN_H = 160
 
 const PAPER_HI = '#eeece8'
 
-const V2_IDS: Record<string, string> = {
+const FACE_IDS: Record<string, string> = {
   'honor-east': 'wind-east',
   'honor-south': 'wind-south',
   'honor-west': 'wind-west',
@@ -81,8 +81,8 @@ export function paintFaceCanvas(
   const ctx = canvas.getContext('2d')!
   paintPaper(ctx, baseColor)
 
-  const v2Id = V2_IDS[kind.id]
-  if (!v2Id) return canvas
+  const faceId = FACE_IDS[kind.id]
+  if (!faceId) return canvas
 
   // 120×160 design space -> 240×320 content, centered with an 8px acrylic edge.
   ctx.save()
@@ -114,7 +114,7 @@ export function paintFaceCanvas(
     ctx.roundRect(42, 37, 35, 76, 1)
     ctx.stroke()
   } else {
-    drawMahjongFace(ctx, v2Id)
+    drawMahjongFace(ctx, faceId)
   }
   ctx.restore()
 
