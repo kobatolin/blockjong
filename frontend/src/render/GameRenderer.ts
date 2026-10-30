@@ -21,7 +21,7 @@ import { createCanvas, roundRectPath } from './canvas'
 import { ParticleBurst } from './particles'
 
 const CAMERA_FOV = 34
-const CAMERA_PITCH = THREE.MathUtils.degToRad(60)
+const CAMERA_PITCH = THREE.MathUtils.degToRad(75)
 const CAMERA_MIN_FOV = 22
 const CAMERA_MAX_FOV = 50
 const CAMERA_YAW_LIMIT = Math.PI / 3
@@ -314,6 +314,13 @@ export class GameRenderer {
   private hintUntil = 0
   private pointerDown: PointerDownState | null = null
   private drag: DragState | null = null
+  private readonly touchPoints = new Map<number, { x: number; y: number }>()
+  private touchGesture: {
+    startDist: number
+    startFov: number
+    lastX: number
+    lastY: number
+  } | null = null
   private cameraDrag: {
     button: number
     lastX: number
@@ -563,6 +570,25 @@ export class GameRenderer {
       bodyRoughness: this.tileFactory.getBodyMaterial().roughness,
       bodyEnvMapIntensity: this.tileFactory.getBodyMaterial().envMapIntensity,
       face: this.tileFactory.getFaceMaterialState(),
+    }
+  }
+
+  /** Camera parameters for automated touch/pointer checks. */
+  cameraState(): {
+    fov: number
+    yaw: number
+    radius: number
+    height: number
+    targetX: number
+    targetZ: number
+  } {
+    return {
+      fov: this.camera.fov,
+      yaw: this.cameraYaw,
+      radius: this.cameraRadius,
+      height: this.cameraHeight,
+      targetX: this.focusTarget.x,
+      targetZ: this.focusTarget.z,
     }
   }
 
@@ -1000,6 +1026,8 @@ export class GameRenderer {
     cancelAnimationFrame(this.animationFrame)
     this.animationFrame = 0
     this.unbindEvents()
+    this.touchPoints.clear()
+    this.touchGesture = null
     this.resizeObserver.disconnect()
     this.tweens.clear()
     for (const [id, view] of [...this.tileViews]) this.removeView(id, view)
@@ -1079,6 +1107,19 @@ export class GameRenderer {
 
   private readonly onPointerDown = (event: PointerEvent): void => {
     if (!this.interactive) return
+    if (event.pointerType === 'touch') {
+      this.touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      if (this.touchPoints.size === 2) {
+        event.preventDefault()
+        this.renderer.domElement.setPointerCapture(event.pointerId)
+        this.beginTouchGesture()
+        return
+      }
+      if (this.touchPoints.size > 2) {
+        event.preventDefault()
+        return
+      }
+    }
     if (
       event.pointerType === 'mouse' &&
       (event.button === 1 || event.button === 2)
@@ -1115,6 +1156,17 @@ export class GameRenderer {
   }
 
   private readonly onPointerMove = (event: PointerEvent): void => {
+    if (event.pointerType === 'touch') {
+      const tracked = this.touchPoints.get(event.pointerId)
+      if (tracked) {
+        tracked.x = event.clientX
+        tracked.y = event.clientY
+      }
+    }
+    if (this.touchGesture) {
+      this.updateTouchGesture()
+      return
+    }
     if (this.cameraDrag) {
       this.updateCameraDrag(event)
       return
@@ -1172,6 +1224,14 @@ export class GameRenderer {
       canvas.releasePointerCapture(event.pointerId)
     }
 
+    if (event.pointerType === 'touch') {
+      this.touchPoints.delete(event.pointerId)
+      if (this.touchGesture) {
+        if (this.touchPoints.size < 2) this.touchGesture = null
+        return
+      }
+    }
+
     if (this.cameraDrag) {
       this.cameraDrag = null
       canvas.style.cursor = 'default'
@@ -1198,6 +1258,10 @@ export class GameRenderer {
   }
 
   private readonly onPointerCancel = (event: PointerEvent): void => {
+    if (event.pointerType === 'touch') {
+      this.touchPoints.delete(event.pointerId)
+      if (this.touchPoints.size < 2) this.touchGesture = null
+    }
     if (this.cameraDrag) {
       if (this.renderer.domElement.hasPointerCapture(event.pointerId)) {
         this.renderer.domElement.releasePointerCapture(event.pointerId)
@@ -1235,6 +1299,54 @@ export class GameRenderer {
     } else {
       this.panCamera(dx, dy)
     }
+    this.applyCameraView()
+  }
+
+  /** Two fingers: pinch changes FOV, moving their midpoint pans the board. */
+  private beginTouchGesture(): void {
+    const points = [...this.touchPoints.values()]
+    if (points.length < 2) return
+    const [a, b] = points
+    this.touchGesture = {
+      startDist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+      startFov: this.camera.fov,
+      lastX: (a.x + b.x) / 2,
+      lastY: (a.y + b.y) / 2,
+    }
+    this.pointerDown = null
+    this.hoverId = null
+    this.renderer.domElement.style.cursor = 'default'
+    if (this.drag) {
+      this.drag = null
+      this.callbacks.onDragCancel()
+      this.resetDragVisuals()
+    }
+    this.updateSelectionVisuals()
+  }
+
+  private updateTouchGesture(): void {
+    const gesture = this.touchGesture
+    if (!gesture) return
+    const points = [...this.touchPoints.values()]
+    if (points.length < 2) return
+    const [a, b] = points
+    const distance = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y))
+    const centerX = (a.x + b.x) / 2
+    const centerY = (a.y + b.y) / 2
+
+    const fov = clamp(
+      (gesture.startFov * gesture.startDist) / distance,
+      CAMERA_MIN_FOV,
+      CAMERA_MAX_FOV,
+    )
+    if (Math.abs(fov - this.camera.fov) > 0.05) {
+      this.camera.fov = fov
+      this.camera.updateProjectionMatrix()
+    }
+
+    this.panCamera(centerX - gesture.lastX, centerY - gesture.lastY)
+    gesture.lastX = centerX
+    gesture.lastY = centerY
     this.applyCameraView()
   }
 

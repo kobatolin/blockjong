@@ -67,6 +67,14 @@ interface MahjDebugApi {
     bodyEnvMapIntensity: number
     face: { type: string; roughness: number; envMapIntensity: number } | null
   } | null
+  cameraState: () => {
+    fov: number
+    yaw: number
+    radius: number
+    height: number
+    targetX: number
+    targetZ: number
+  } | null
   tap: (row: number, col: number) => void
   drag: (tileId: number, dir: Dir, k: number) => void
   itemUses: () => number
@@ -905,6 +913,7 @@ function installDebugBridge(): void {
       return null
     },
     lightingState: () => renderer?.getLightingState() ?? null,
+    cameraState: () => renderer?.cameraState() ?? null,
     tap: (row, col) => handleTap(-1, row, col),
     drag: (tileId, dir, k) => handleDragEnd(tileId, dir, k),
     itemUses: () => session.itemUsesLeft,

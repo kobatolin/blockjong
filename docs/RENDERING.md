@@ -101,8 +101,8 @@ Scene
 | 参数 | 值 |
 | --- | --- |
 | 类型 | `PerspectiveCamera` |
-| `fov` | 34°（默认，滚轮 22–50°） |
-| 俯仰角 | 初始约 60°（从水平面算） |
+| `fov` | 34°（默认，滚轮/双指捏合 22–50°） |
+| 俯仰角 | 初始约 **75°**（从水平面算，更接近正俯视） |
 | 相机高度 | 固定为初始 fit 高度，缩放/平移/旋转都不改 Y |
 | 朝向 | 默认沿 +Z 看向原点，无侧倾 |
 | 近/远裁剪 | 0.1 / 200 |
@@ -117,7 +117,7 @@ const corners = [x = ±W/2, z = ±D/2, y = 0 或 TILE_H]; // 8 个点
 let low = 4, high = 200;
 for (let i = 0; i < 28; i++) {
   const dist = (low + high) / 2;
-  camera.position.set(0, dist * sin(60°), dist * cos(60°));
+  camera.position.set(0, dist * sin(75°), dist * cos(75°));
   camera.lookAt(0, 0.25, 0.35);
   camera.updateMatrixWorld(true);
   const maxNdc = max(|corner.project(camera).x|, |corner.project(camera).y|);
@@ -131,7 +131,7 @@ for (let i = 0; i < 28; i++) {
 - 相机位置：
 
 ```ts
-const pitch = THREE.MathUtils.degToRad(60);
+const pitch = THREE.MathUtils.degToRad(75);
 camera.position.set(0, dist * Math.sin(pitch), dist * Math.cos(pitch));
 camera.lookAt(0, 0.25, 0.35);
 ```
@@ -146,9 +146,10 @@ camera.lookAt(0, 0.25, 0.35);
 
 - **滚轮**：只改 `camera.fov`，范围 22–50°，不改相机高度/距离；
 - **右键拖动**：相机绕当前目标点水平环绕，并可按垂直拖动改变观察半径（仍是固定高度），yaw 限制 ±60°；观察半径可从约 `0.02×fit`（向下拖，接近正向下）到 `1.8×fit`（向上拖，更斜的视角）；
-- **中键拖动**：在水平面平移观察目标，目标点限制在棋盘范围内，相机高度不变；
+- **中键拖动 / 双指拖动**：在水平面平移观察目标，目标点限制在棋盘范围内，相机高度不变；
+- **双指捏合**：改 `camera.fov`（22–50°），与滚轮一致；双指手势期间不响应单指牌面点选/拖动；
 - 所有相机变换只改相机，不改棋盘坐标；拾取使用当前相机矩阵。
-- 右键/中键按下时捕获 pointer，并阻止 `contextmenu`/`auxclick`；左键的牌面点选和拖动逻辑不变。
+- 右键/中键按下时捕获 pointer，并阻止 `contextmenu`/`auxclick`；左键/单指的牌面点选和拖动逻辑不变。
 
 ### 4.4 相机避让 HUD
 
