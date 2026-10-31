@@ -95,6 +95,7 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 - **相机适配**：棋盘为竖长格（`CELL_D = 1.30`，牌体长:宽:高 = 4:3:2），别按正方形算范围。默认俯仰 **75°**（更接近正俯视），相机高度在首次 fit 后固定；滚轮或**双指捏合**改 FOV（22–50°），右键绕目标水平旋转（yaw ±60°）+ 改变观察半径（约 0.02×fit 到 1.8×fit；向下拖接近正向下，向上拖更斜），中键或**双指拖动**在桌面平面平移目标（限制在棋盘范围）；左键/单指牌面拖动与相机手势互斥。
 - **种子**：0 是合法 seed，“未输入”用 `null`；URL 的 `?seed=` 必须走同一套校验；随机 seed 用 `crypto.getRandomValues`，不要用 `Math.random` 生成开局布局。
 - **DSH 沙箱**：Vite 8 会执行 `net use` 探测网络盘，`scripts/sandbox-preload.cjs` 只拦截这一条命令；Vitest 必须用 `--pool=threads`（forks 会 spawn 子进程被拒）。这只影响本会话，普通环境用 `npm run dev/build/test` 即可。
+- **PWA / 离线**：`vite-plugin-pwa` 2.0（generateSW + autoUpdate）预缓存全部静态资源，ECS 与 NAS 双端可断网启动。manifest `start_url`/`scope` 用相对路径 `'.'`、图标用相对 src，兼容 ECS 根路径与 NAS `/mahjong/` 子路径两种 base；NAS 构建用 `npm run build:sandbox -- --base=/mahjong/ --outDir dist-nas`。图标由 `scripts/make_icons.py`（Pillow）生成，改图标改脚本勿手改 `frontend/public/*.png`。SW 更新策略 autoUpdate：部署后用户下次联网打开自动生效（过程中可能刷新一次页面）。
 
 ## 代码约定
 
