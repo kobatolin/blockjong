@@ -290,6 +290,8 @@ export class GameRenderer {
 
   private animationFrame = 0
   private disposed = false
+  private needsRender = true
+  private renderFrameCount = 0
   private interactive = true
   private hoverId: number | null = null
   private selectedId: number | null = null
@@ -498,6 +500,13 @@ export class GameRenderer {
     this.bindEvents()
   }
 
+  /**
+   * Demand-driven render loop: the composer only runs while something is
+   * actually changing (tweens, particles, camera gestures, pulsing markers)
+   * or a state change flagged `needsRender`. An idle board costs ~0 GPU.
+   * Any code that mutates the scene outside of those continuous sources must
+   * call `invalidate()`.
+   */
   start(): void {
     if (this.animationFrame !== 0) return
     const tick = (): void => {
@@ -505,12 +514,52 @@ export class GameRenderer {
       this.animationFrame = requestAnimationFrame(tick)
       const dt = Math.min(this.clock.getDelta(), 0.05)
       this.tweens.update(dt)
-      this.particles.update(dt)
-      this.recordFrame(dt)
+      const particlesBusy = this.particles.update(dt)
       this.animateAmbient()
-      this.composer.render()
+      if (particlesBusy || this.renderContinuous() || this.needsRender) {
+        this.needsRender = false
+        this.recordFrame(dt)
+        this.composer.render()
+        this.renderFrameCount += 1
+      }
     }
     this.animationFrame = requestAnimationFrame(tick)
+  }
+
+  /** Scene changed outside the continuous sources; redraw once on next tick. */
+  private invalidate(): void {
+    this.needsRender = true
+  }
+
+  /**
+   * Debug/perf probe: how many composer frames were drawn and whether the
+   * loop currently considers itself continuously animating.
+   */
+  renderStats(): { frames: number; continuous: boolean; needsRender: boolean } {
+    return {
+      frames: this.renderFrameCount,
+      continuous: this.renderContinuous(),
+      needsRender: this.needsRender,
+    }
+  }
+
+  /** True while idle-time visuals keep animating and need per-frame renders. */
+  private renderContinuous(): boolean {
+    if (
+      this.tweens.size > 0 ||
+      this.drag !== null ||
+      this.cameraDrag !== null ||
+      this.touchGesture !== null
+    ) {
+      return true
+    }
+    if (this.reducedMotion) return false
+    if (this.selectionHalo.visible) return true
+    for (const marker of this.partnerMarkers) if (marker.visible) return true
+    for (const halo of this.partnerHalos) if (halo.visible) return true
+    for (const marker of this.hintMarkers) if (marker.visible) return true
+    for (const halo of this.choiceHalos) if (halo.visible) return true
+    return false
   }
 
   setQuality(quality: RenderQuality): void {
@@ -525,6 +574,7 @@ export class GameRenderer {
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
     this.reducedMotion = motion === 'reduced' || systemReduced
+    this.invalidate()
   }
 
   setLighting(settings: LightingSettings): void {
@@ -555,6 +605,7 @@ export class GameRenderer {
     material.clearcoatRoughness = 0.08 + roughness * 0.5
     material.needsUpdate = true
     this.tileFactory.setFaceAppearance(roughness, reflectivity, intensity)
+    this.invalidate()
   }
 
   getLightingState(): {
@@ -657,6 +708,7 @@ export class GameRenderer {
       this.wallBounce.color.set(tuning.wallColor)
     }
     this.wallBounce.intensity = tuning.hemisphereIntensity * 1.3
+    this.invalidate()
   }
 
   private effectiveQuality(): Exclude<RenderQuality, 'auto'> {
@@ -805,6 +857,7 @@ export class GameRenderer {
     this.updateChoiceMarkers([])
     this.updateHintMarkers([])
     this.updatePartnerMarkers([])
+    this.invalidate()
   }
 
   /**
@@ -1102,6 +1155,7 @@ export class GameRenderer {
     if (next !== this.camera.fov) {
       this.camera.fov = next
       this.camera.updateProjectionMatrix()
+      this.invalidate()
     }
   }
 
@@ -1510,6 +1564,7 @@ export class GameRenderer {
 
     this.updatePartnerMarkers(this.partnerIds)
     this.updateHintMarkers(this.hintIds)
+    this.invalidate()
   }
 
   private updatePartnerMarkers(ids: number[]): void {
@@ -1626,6 +1681,8 @@ export class GameRenderer {
     if (this.hintIds.length > 0 && now > this.hintUntil) {
       this.hintIds = []
       this.updateHintMarkers([])
+      // Markers were a continuous-render source; draw their cleared state once.
+      this.invalidate()
     }
   }
 
@@ -1699,6 +1756,7 @@ export class GameRenderer {
     this.camera.updateProjectionMatrix()
     if (!this.cameraReady) this.fitCamera()
     else this.applyCameraView()
+    this.invalidate()
   }
 
   private fitCamera(): void {
@@ -1761,5 +1819,6 @@ export class GameRenderer {
     )
     this.camera.lookAt(this.focusTarget)
     this.camera.updateMatrixWorld(true)
+    this.invalidate()
   }
 }

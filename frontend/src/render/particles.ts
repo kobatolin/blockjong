@@ -80,7 +80,8 @@ export class ParticleBurst {
     this.geometry.attributes.position.needsUpdate = true
   }
 
-  update(dt: number): void {
+  /** Advances particles; returns true while anything moved this frame. */
+  update(dt: number): boolean {
     let active = false
     for (let index = 0; index < MAX_PARTICLES; index += 1) {
       if (this.life[index] <= 0) continue
@@ -104,6 +105,7 @@ export class ParticleBurst {
       }
     }
     if (active) this.geometry.attributes.position.needsUpdate = true
+    return active
   }
 
   dispose(): void {

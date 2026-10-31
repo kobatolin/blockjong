@@ -76,11 +76,12 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements.txt
 - **pip/uv 缓存**同样受限：用 `--cache-dir` / `UV_CACHE_DIR` 指向项目内。
 - **pnpm 未安装**：不要引入 pnpm 工作流；统一 npm + `package-lock.json`。
 - **浏览器自动化**：普通沙箱无法启动 Edge（mojo IPC 被拒）；切到完整权限后可用 `playwright-core` + 本机 Edge 截图/点击/拖拽验收。不要假设 `npm run test` 在沙箱中可用，统一用 `test:sandbox`。
-- **`?debug=1`**：在 `window.__mahj` 暴露快照、hint、findDrag、assistMove、findChoice、cellToScreen、tap/drag、itemUses/itemActive/itemTargets/itemToggle、uiState（含 awaitingChoice）；仅用于验收，不参与正常玩法。`?debug=1` 会跳过首次三步引导。
+- **`?debug=1`**：在 `window.__mahj` 暴露快照、hint、findDrag、assistMove、findChoice、cellToScreen、tap/drag、itemUses/itemActive/itemTargets/itemToggle、uiState（含 awaitingChoice）、renderStats（composer 帧计数/continuous/needsRender，验收按需渲染用）；仅用于验收，不参与正常玩法。`?debug=1` 会跳过首次三步引导。
 - **音效**：`render/audio.ts` 用 Web Audio 程序化合成，AudioContext 必须由首次用户手势创建；设置里的静音会 `suspend/resume`，不要在模块顶层 new AudioContext。
 - **设置持久化**：`mahj.tutorial.v1` 与 `mahj.settings.v1` 存 localStorage；自动化测试用 `?debug=1` 跳过教程，或预先写入 storage。`settings.v1` 现包含 `lightIntensity` / `lightTemperature` / `tileRoughness` / `tileReflectivity` / `debugRender`，加载时必须 clamp/校验；`GameView` 监听四项外观参数并调用 `GameRenderer.setLighting()`。调试面板由设置中的 **“调试渲染”开关控制，默认关闭**；开启后右缘才出现“渲染”标签，打开 `LightingPanel.vue` 的 RENDER DEBUG 面板（可折叠/关闭），通过 `GameRenderer.setTuning()` 暴露 29 个高级滑杆和 6 个颜色（牌面底色/牌体/墙面/墨/红/绿），**不持久化**且覆盖基础设置；改参数映射时同步更新 `DEFAULT_RENDER_TUNING`。改牌面底色/颜色或阴刻高度会重新烘焙 42 张面纹理；必须保留 120ms 防抖。阴刻金属度靠 metalnessMap 只作用于填漆区域。墙面色同时驱动 hemisphere ground 和一个低强度 wall-bounce AmbientLight；只改 ground 对朝上的桌面/牌面几乎无效。点光强度上限 800、位置 X/Y/Z 可调，物理衰减 `decay=2`。
 - **道具“移牌”**：`core/items.ts` 只有纯函数（`adjacentEmptyCells` / `isAdjacentCell` / `ITEM_USES_PER_GAME`）；状态在 `GameSession`（`itemUses` / `itemActive` / `itemTileId`），入口是 `beginItemMove()` + `tapItem()`，`tap()` 在道具模式下自动转发。别在 `render/` 或 Vue 里判断相邻/空格。渲染用 `GameRenderer.setItemPreview()`（目标格冷青色）与 `playItemMove()`（`240ms` 滑动）；`undo()` 同时恢复棋盘与次数，历史条目存 `itemUses`。满盘（`itemMovable()` 为 false）时不允许进入道具模式，否则只能反复提示“四周没有空格”。
 - **画质档位**：`GameRenderer.setQuality()` 控制 DPR/阴影/粒子；低画质关闭阴影与粒子，自动档在平均帧时间 >24ms 时降到 medium。不要在渲染循环里反复重建 renderer。
+- **按需渲染**：渲染循环只在有连续变化源（tween/粒子/相机手势/拖动预览/光晕与标记脉动）时每帧走 EffectComposer；其余场景变更必须调用 `GameRenderer.invalidate()`（私有，内部 setter 已覆盖）才重绘一帧；完全空闲时 GPU 占用趋近 0（RTX4060Ti 空闲 ~30% → ~0%）。新增直接改场景/相机/材质的路径记得补 `invalidate()`，否则空闲时画面不更新。详见 `docs/RENDERING.md` §12.3。
 - **Node 24 + Vite 8**：满足 engines；但 **TypeScript 锁 5.9.x**，不要升到 7.x（`vue-tsc` 生态未验证）。
 - **Three.js 0.186 只支持 WebGL2**；不要写 WebGL1 回退渲染器。
 - **Three.js addons 路径**：`three/addons/geometries/RoundedBoxGeometry.js`、`three/addons/environments/RoomEnvironment.js`。版本升级前先查 API。
